@@ -135,25 +135,37 @@ end
 -- with multiple Augmentation Evokers (TRACK-02): only Prescience cast by the
 -- local player should light up our slot state.
 
--- Returns (hasPrescience, expirationTime, duration) from a full HELPFUL scan
--- on the slot's unitID. Matches aura.spellId == 409311 AND aura.sourceUnit ==
--- "player". Returns false/0/0 if the slot is unresolved or no match is found.
+-- Returns (hasPrescience, expirationTime, duration) from a player-cast HELPFUL
+-- scan on the slot's unitID. Matches aura.spellId == 409311 AND aura.sourceUnit
+-- == "player". Returns false/0/0 if the slot is unresolved or no match is found.
 -- `usePackedAura=true` (D-25) gives us a packed AuraData table; iteration is
 -- aborted on first match to save a handful of callback invocations per scan
 -- (claude's discretion -- behavior identical either way).
+--
+-- Filter "HELPFUL|PLAYER" restricts iteration to auras cast by the player,
+-- bypassing forbidden/secret auras applied by raid bosses or other systems --
+-- those would throw "attempt to compare field 'spellId' (a secret number value
+-- tainted by 'PrescienceHelper')" on direct field access. The pcall guard is
+-- defense in depth: even with the PLAYER filter, certain edge auras may still
+-- expose forbidden fields, so every aura read is wrapped.
 local function scanAurasForSlot(slot)
     local s = PH.slots[slot]
     if not s.resolved or not s.unitID then
         return false, 0, 0
     end
     local found, exp, dur = false, 0, 0
-    AuraUtil.ForEachAura(s.unitID, "HELPFUL", nil, function(aura)
-        if aura.spellId == SPELL_ID_PRESCIENCE and aura.sourceUnit == "player" then
-            found = true
-            exp   = aura.expirationTime or 0
-            dur   = aura.duration or 0
-            return true  -- abort iteration once our Prescience is found
-        end
+    AuraUtil.ForEachAura(s.unitID, "HELPFUL|PLAYER", nil, function(aura)
+        if not aura then return end
+        local ok, isMatch = pcall(function()
+            return aura.spellId == SPELL_ID_PRESCIENCE and aura.sourceUnit == "player"
+        end)
+        if not ok or not isMatch then return end
+        local ok2, e, d = pcall(function() return aura.expirationTime, aura.duration end)
+        if not ok2 then return end
+        found = true
+        exp   = e or 0
+        dur   = d or 0
+        return true  -- abort iteration once our Prescience is found
     end, true)
     return found, exp, dur
 end
