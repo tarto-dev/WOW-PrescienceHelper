@@ -1,5 +1,6 @@
 ## Interface: 120001
 ## Title: |cFFFF6666Prescience|r|cFF66FF66Helper|r
+## IconTexture: Interface\Icons\Ability_Evoker_Prescience
 ## Notes: Track Prescience on two key raid allies.
 ## Notes-frFR: Traque Prescience sur deux cibles prioritaires en raid.
 ## Version: 0.1.0
