@@ -25,10 +25,13 @@ local rosterDeadline = 0
 local rosterPending  = false
 local rangeElapsed   = 0.0
 
--- Numeric spellID, NOT the localised name: IsSpellInRange("Prescience", unit)
--- returns nil on non-enUS clients (deDE / frFR / ...) since the API matches
--- the localised name. The numeric path is locale-independent.
-local SPELL_ID_PRESCIENCE = 409311
+-- Prescience has two distinct spellIDs: 409311 is the spell the player casts
+-- (used by IsSpellInRange and UNIT_SPELLCAST_SENT), 410089 is the buff applied
+-- on the target and surfaced by AuraUtil.ForEachAura. Matching aura.spellId
+-- against the cast ID silently fails -- no match, hasPrescience stays false.
+-- Numeric IDs, NOT localised names: string-based APIs return nil on non-enUS.
+local SPELL_ID_PRESCIENCE_CAST = 409311
+local SPELL_ID_PRESCIENCE_BUFF = 410089
 
 -- Temporary debug helper: mirrors prints to PH.db.debugLog (ring buffer, 800
 -- lines) so they survive /reload and land in SavedVariables for offline
@@ -135,7 +138,7 @@ local function scanAurasForSlot(slot)
             end
         end
         local ok, isMatch = pcall(function()
-            return aura.spellId == SPELL_ID_PRESCIENCE
+            return aura.spellId == SPELL_ID_PRESCIENCE_BUFF
         end)
         if not ok or not isMatch then return end
         local ok2, e, d = pcall(function() return aura.expirationTime, aura.duration end)
@@ -382,7 +385,7 @@ function Tracker:TickRange(elapsed)
     for slot = 1, 2 do
         local s = PH.slots[slot]
         if s.resolved and s.unitID then
-            local result = C_Spell.IsSpellInRange(SPELL_ID_PRESCIENCE, s.unitID)
+            local result = C_Spell.IsSpellInRange(SPELL_ID_PRESCIENCE_CAST, s.unitID)
             local newInRange = (result == true)
             if newInRange ~= s.inRange then
                 s.inRange = newInRange
@@ -395,7 +398,7 @@ end
 -- Debug-gated trace: prints when the player casts Prescience on a tracked slot.
 function Tracker:OnSpellcastSent(event, unit, target, castGUID, spellID)
     if unit ~= "player" then return end
-    if spellID ~= SPELL_ID_PRESCIENCE then return end
+    if spellID ~= SPELL_ID_PRESCIENCE_CAST then return end
     if not PH.debug then return end
     if not target or target == "" then return end
     for slot = 1, 2 do
