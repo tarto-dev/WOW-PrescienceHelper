@@ -158,16 +158,24 @@ local function buildLayout(panel)
     lbSound:SetPoint("LEFT", cbSound, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.sound = cbSound
 
-    -- Left column, row 6: Reset-positions Button. Extra PADDING on the y
-    -- offset adds a small visual gap between the three checkboxes above and
+    -- Left column, row 6: debug CheckButton. Toggles `PH.debug` (and persists
+    -- to `PH.db.debug`) which gates verbose prints across Core/Tracker/UI/Config
+    -- plus the Tracker UNIT_SPELLCAST_SENT trace ("[PH] Macro N utilisee sur ...").
+    local cbDebug, lbDebug = makeCheckButton(panel, "Mode debug")
+    cbDebug:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 5 * ROW_HEIGHT)
+    lbDebug:SetPoint("LEFT", cbDebug, "RIGHT", PADDING, 0)
+    PH.Config._widgets.check.debug = cbDebug
+
+    -- Left column, row 7: Reset-positions Button. Extra PADDING on the y
+    -- offset adds a small visual gap between the four checkboxes above and
     -- the action-button below, signalling the control-vs-action boundary.
     local btnReset = makeButton(panel, "Reinitialiser les positions")
-    btnReset:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 5 * ROW_HEIGHT - PADDING)
+    btnReset:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 6 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.reset = btnReset
 
-    -- Right column (D-06): only rows 1, 2, 6 carry status in v1. Rows 3-5 are
+    -- Right column (D-06): only rows 1, 2, 7 carry status in v1. Rows 3-6 are
     -- deliberately empty (no FontString reserved) per CONTEXT.md -- the lock /
-    -- test / sound checkboxes do not need a mirrored status line.
+    -- test / sound / debug checkboxes do not need a mirrored status line.
 
     -- Mirror row 1: resolution status slot 1 -- Plan 04-03 populates the text
     -- via Config's resolution-status refresh method, reading PH.slots[1] +
@@ -181,39 +189,65 @@ local function buildLayout(panel)
     res2:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - ROW_HEIGHT)
     PH.Config._widgets.status.resolution[2] = res2
 
-    -- Mirror row 6: two stacked macro status FontStrings. Slot 1 aligns with
+    -- Mirror row 7: two stacked macro status FontStrings. Slot 1 aligns with
     -- the Reset button's y; slot 2 sits half a row below so the two macro
     -- status lines are visually grouped as a unit. Plan 04-03's macro-status
     -- refresh method resolves the macro-by-name lookup for the PRESCIENCE N
     -- macro and paints the FontString with the D-09 palette.
     local mac1 = makeStatusLine(panel)
-    mac1:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 5 * ROW_HEIGHT - PADDING)
+    mac1:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 6 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.status.macro[1] = mac1
     local mac2 = makeStatusLine(panel)
-    mac2:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 5 * ROW_HEIGHT - PADDING - math.floor(ROW_HEIGHT / 2))
+    mac2:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 6 * ROW_HEIGHT - PADDING - math.floor(ROW_HEIGHT / 2))
     PH.Config._widgets.status.macro[2] = mac2
 end
 
 buildLayout(PH.Config._panel)
 
 -- 4.1 Author credit footer (Phase 5 polish) ---------------------------------
--- Subtle bottom-left author line ending with a French tricolor "flag" built
--- from three U+2588 FULL BLOCK glyphs (decimal-escaped \226\150\136 per the
--- WoW Lua 5.1 escape rule) individually colored via the |cAARRGGBB...|r
--- inline color escape: bleu #0055A4, blanc #FFFFFF, rouge #EF4135.
--- The Block Elements range (U+2580-259F) is part of the standard WoW font
--- glyph coverage, so the three blocks render as solid vertical bars and
--- visually compose into a tricolor flag at small font size. ASCII at the
--- byte level: only the literal block bytes are non-ASCII and they are
--- written as decimal escapes (CLAUDE.md byte convention preserved).
+-- Subtle bottom-left author line. The author handle is rendered as a per-
+-- letter blue-white-red gradient using WoW's |cAARRGGBB...|r inline color
+-- escape -- one color tag per character, computed at file load via linear
+-- interpolation in HSV-equivalent RGB space. Pure ASCII at the byte level:
+-- no Unicode glyph is required since the gradient is the visual signal.
 -- GameFontDisableSmall keeps the credit visually subordinate to the controls.
+
+-- Linear-interpolated tricolor: text is colored character by character along
+-- the path c1 -> c2 -> c3 with the midpoint forced to c2. Returns the full
+-- pre-formatted FontString-ready string with one |c..|r block per glyph.
+-- Color triplets are integer 0-255 sRGB so the |cAARRGGBB hex format applies
+-- directly. No allocation in the hot path -- this runs once at file load.
+local function gradientText(text, c1, c2, c3)
+    local n = #text
+    if n == 0 then return "" end
+    local mid = (n + 1) / 2
+    local out = {}
+    for i = 1, n do
+        local t, ca, cb
+        if i <= mid then
+            t = (mid > 1) and ((i - 1) / (mid - 1)) or 0
+            ca, cb = c1, c2
+        else
+            t = (i - mid) / (n - mid)
+            ca, cb = c2, c3
+        end
+        local r = math.floor(ca[1] + (cb[1] - ca[1]) * t + 0.5)
+        local g = math.floor(ca[2] + (cb[2] - ca[2]) * t + 0.5)
+        local b = math.floor(ca[3] + (cb[3] - ca[3]) * t + 0.5)
+        out[#out + 1] = ("|cFF%02X%02X%02X%s|r"):format(r, g, b, text:sub(i, i))
+    end
+    return table.concat(out)
+end
+
+local AUTHOR_HANDLE = "Claralicious_"
+local FR_BLEU  = { 0x00, 0x55, 0xA4 }
+local FR_BLANC = { 0xFF, 0xFF, 0xFF }
+local FR_ROUGE = { 0xEF, 0x41, 0x35 }
+
 local function buildFooter(panel)
     local fs = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     fs:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", LEFT_X, PADDING)
-    fs:SetText("By Claralicious_  "
-        .. "|cFF0055A4\226\150\136|r"
-        .. "|cFFFFFFFF\226\150\136|r"
-        .. "|cFFEF4135\226\150\136|r")
+    fs:SetText("By " .. gradientText(AUTHOR_HANDLE, FR_BLEU, FR_BLANC, FR_ROUGE))
 end
 
 buildFooter(PH.Config._panel)
@@ -332,6 +366,22 @@ local function wireWidgets(panel)
         end
     end)
 
+    -- Debug: writes PH.db.debug AND mirrors to the cached PH.debug flag so
+    -- subsequent gated prints across Core/Tracker/UI/Config see the new value
+    -- without /reload. The mirror is also seeded by Core.OnAddonLoaded after
+    -- the DB merge so the flag survives login. No event fire -- subscribers
+    -- read PH.debug directly each time they decide to print.
+    PH.Config._widgets.check.debug:SetScript("OnClick", function(self)
+        if not PH.db then return end
+        PH.db.debug = self:GetChecked() and true or false
+        PH.debug = PH.db.debug
+        -- Print AFTER the toggle so flipping ON immediately confirms the change
+        -- in chat; flipping OFF stays silent (we just disabled the prints).
+        if PH.debug then
+            print(("[PH] Config:CheckButton debug=%s"):format(tostring(PH.db.debug)))
+        end
+    end)
+
     -- 3) Reset button wiring (D-24, D-25, D-26, UI-10) ---------------------
     -- Reset Positions closes UI-10, the last Phase 3-origin requirement
     -- deferred to Phase 4. The wipe-and-reapply is intentionally not wrapped
@@ -402,6 +452,7 @@ function Config:SyncWidgetsFromDB()
     w.check.lock:SetChecked(PH.db.lock and true or false)
     w.check.test:SetChecked(PH.db.test and true or false)
     w.check.sound:SetChecked(PH.db.soundEnabled and true or false)
+    w.check.debug:SetChecked(PH.db.debug and true or false)
 end
 
 -- Panel show script: sync widgets to PH.db AND refresh status FontStrings
