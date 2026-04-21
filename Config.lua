@@ -137,43 +137,59 @@ local function buildLayout(panel)
     eb2:SetPoint("LEFT", lb2, "RIGHT", PADDING + 60, 0)
     PH.Config._widgets.player[2] = eb2
 
-    -- Left column, row 3: lock CheckButton (y offset two rows). Label sits to
-    -- the right of the check with PADDING gap. ASCII-only per CLAUDE.md +
-    -- CONTEXT.md D-07 "Claude's Discretion"; accents restored in a later phase
-    -- only if needed.
+    -- Left column, row 3: activeRaid CheckButton (Phase 5 dungeon support).
+    -- Toggles PH.db.activeRaid and fires PH_ACTIVE_GATE_CHANGED so Tracker
+    -- re-runs UpdateActivation immediately. Default true preserves the Phase
+    -- 1-4 raid-only behavior.
+    local cbActiveRaid, lbActiveRaid = makeCheckButton(panel, "Activer en raid")
+    cbActiveRaid:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 2 * ROW_HEIGHT)
+    lbActiveRaid:SetPoint("LEFT", cbActiveRaid, "RIGHT", PADDING, 0)
+    PH.Config._widgets.check.activeRaid = cbActiveRaid
+
+    -- Left column, row 4: activeDungeon CheckButton. Same fan-out as activeRaid.
+    -- Default false because the Phase-1 PROJECT.md "out of scope: M+" is being
+    -- explicitly reversed by the user; opt-in keeps the change non-disruptive.
+    local cbActiveDungeon, lbActiveDungeon = makeCheckButton(panel, "Activer en donjon")
+    cbActiveDungeon:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 3 * ROW_HEIGHT)
+    lbActiveDungeon:SetPoint("LEFT", cbActiveDungeon, "RIGHT", PADDING, 0)
+    PH.Config._widgets.check.activeDungeon = cbActiveDungeon
+
+    -- Left column, row 5: lock CheckButton. ASCII-only per CLAUDE.md + CONTEXT
+    -- D-07 "Claude's Discretion"; accents restored in a later phase only if
+    -- needed.
     local cbLock, lbLock = makeCheckButton(panel, "Verrouiller les icones")
-    cbLock:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 2 * ROW_HEIGHT)
+    cbLock:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 4 * ROW_HEIGHT)
     lbLock:SetPoint("LEFT", cbLock, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.lock = cbLock
 
-    -- Left column, row 4: test CheckButton.
+    -- Left column, row 6: test CheckButton.
     local cbTest, lbTest = makeCheckButton(panel, "Mode test")
-    cbTest:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 3 * ROW_HEIGHT)
+    cbTest:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 5 * ROW_HEIGHT)
     lbTest:SetPoint("LEFT", cbTest, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.test = cbTest
 
-    -- Left column, row 5: sound CheckButton.
+    -- Left column, row 7: sound CheckButton.
     local cbSound, lbSound = makeCheckButton(panel, "Son active")
-    cbSound:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 4 * ROW_HEIGHT)
+    cbSound:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 6 * ROW_HEIGHT)
     lbSound:SetPoint("LEFT", cbSound, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.sound = cbSound
 
-    -- Left column, row 6: debug CheckButton. Toggles `PH.debug` (and persists
+    -- Left column, row 8: debug CheckButton. Toggles `PH.debug` (and persists
     -- to `PH.db.debug`) which gates verbose prints across Core/Tracker/UI/Config
     -- plus the Tracker UNIT_SPELLCAST_SENT trace (PH.prefix .. " Macro N utilisee sur ...").
     local cbDebug, lbDebug = makeCheckButton(panel, "Mode debug")
-    cbDebug:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 5 * ROW_HEIGHT)
+    cbDebug:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 7 * ROW_HEIGHT)
     lbDebug:SetPoint("LEFT", cbDebug, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.debug = cbDebug
 
-    -- Left column, row 7: Reset-positions Button. Extra PADDING on the y
-    -- offset adds a small visual gap between the four checkboxes above and
+    -- Left column, row 9: Reset-positions Button. Extra PADDING on the y
+    -- offset adds a small visual gap between the six checkboxes above and
     -- the action-button below, signalling the control-vs-action boundary.
     local btnReset = makeButton(panel, "Reinitialiser les positions")
-    btnReset:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 6 * ROW_HEIGHT - PADDING)
+    btnReset:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 8 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.reset = btnReset
 
-    -- Left column, row 8: "Enregistrer et recreer les macros". Re-applies the
+    -- Left column, row 10: "Enregistrer et recreer les macros". Re-applies the
     -- canonical PRESCIENCE N body for both slots from current PH.db state via
     -- applyMacroForSlot. Use cases: user manually wiped/edited the macros and
     -- wants the addon body restored, or PH.db was edited via /run and the
@@ -181,12 +197,12 @@ local function buildLayout(panel)
     -- label exceeds the 180 default. No extra PADDING -- this button is the
     -- companion of Reset (both are Phase-5 maintenance actions, grouped tight).
     local btnRecreate = makeButton(panel, "Enregistrer et recreer les macros", 240)
-    btnRecreate:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 7 * ROW_HEIGHT - PADDING)
+    btnRecreate:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 9 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.recreate = btnRecreate
 
-    -- Right column (D-06): only rows 1, 2, 7 carry status in v1. Rows 3-6 are
-    -- deliberately empty (no FontString reserved) per CONTEXT.md -- the lock /
-    -- test / sound / debug checkboxes do not need a mirrored status line.
+    -- Right column (D-06): only rows 1, 2, 9 carry status in v1. Rows 3-8 are
+    -- deliberately empty (no FontString reserved) per CONTEXT.md -- the active*
+    -- / lock / test / sound / debug checkboxes do not need a mirrored status line.
 
     -- Mirror row 1: resolution status slot 1 -- Plan 04-03 populates the text
     -- via Config's resolution-status refresh method, reading PH.slots[1] +
@@ -200,16 +216,16 @@ local function buildLayout(panel)
     res2:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - ROW_HEIGHT)
     PH.Config._widgets.status.resolution[2] = res2
 
-    -- Mirror row 7: two stacked macro status FontStrings. Slot 1 aligns with
+    -- Mirror row 9: two stacked macro status FontStrings. Slot 1 aligns with
     -- the Reset button's y; slot 2 sits half a row below so the two macro
     -- status lines are visually grouped as a unit. Plan 04-03's macro-status
     -- refresh method resolves the macro-by-name lookup for the PRESCIENCE N
     -- macro and paints the FontString with the D-09 palette.
     local mac1 = makeStatusLine(panel)
-    mac1:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 6 * ROW_HEIGHT - PADDING)
+    mac1:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 8 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.status.macro[1] = mac1
     local mac2 = makeStatusLine(panel)
-    mac2:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 6 * ROW_HEIGHT - PADDING - math.floor(ROW_HEIGHT / 2))
+    mac2:SetPoint("TOPLEFT", panel, "TOPLEFT", RIGHT_X, TOP_Y - 8 * ROW_HEIGHT - PADDING - math.floor(ROW_HEIGHT / 2))
     PH.Config._widgets.status.macro[2] = mac2
 end
 
@@ -416,6 +432,29 @@ local function wireWidgets(panel)
     end
 
     -- 2) CheckButton wiring (D-20, D-21, D-22, D-23) ------------------------
+    -- ActiveRaid / ActiveDungeon (Phase 5): write the persisted flag THEN
+    -- fire PH_ACTIVE_GATE_CHANGED so Tracker:OnActiveGateChanged runs
+    -- UpdateActivation immediately (transition active/inactive) and re-Resolves.
+    -- Mirrors the test-mode pattern (write-then-fire). The two checkboxes
+    -- share the same wiring shape; both fire the same synthetic event because
+    -- Tracker's gate combines them via OR (raid OR dungeon OR test).
+    PH.Config._widgets.check.activeRaid:SetScript("OnClick", function(self)
+        if not PH.db then return end
+        PH.db.activeRaid = self:GetChecked() and true or false
+        if PH.debug then
+            print((PH.prefix .. " Config:CheckButton activeRaid=%s"):format(tostring(PH.db.activeRaid)))
+        end
+        PH.Core:Fire("PH_ACTIVE_GATE_CHANGED")
+    end)
+    PH.Config._widgets.check.activeDungeon:SetScript("OnClick", function(self)
+        if not PH.db then return end
+        PH.db.activeDungeon = self:GetChecked() and true or false
+        if PH.debug then
+            print((PH.prefix .. " Config:CheckButton activeDungeon=%s"):format(tostring(PH.db.activeDungeon)))
+        end
+        PH.Core:Fire("PH_ACTIVE_GATE_CHANGED")
+    end)
+
     -- Lock: writes PH.db.lock = self:GetChecked() and true or false -- no
     -- event fire. Phase 3's UI.lua OnDragStart reads PH.db.lock at drag time
     -- (UI.lua line 167 region), so the effect is immediate without any fan-
@@ -559,6 +598,8 @@ function Config:SyncWidgetsFromDB()
         eb:SetText(value)
         eb:SetCursorPosition(0)
     end
+    w.check.activeRaid:SetChecked(PH.db.activeRaid and true or false)
+    w.check.activeDungeon:SetChecked(PH.db.activeDungeon and true or false)
     w.check.lock:SetChecked(PH.db.lock and true or false)
     w.check.test:SetChecked(PH.db.test and true or false)
     w.check.sound:SetChecked(PH.db.soundEnabled and true or false)
