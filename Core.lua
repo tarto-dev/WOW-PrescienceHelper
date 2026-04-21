@@ -85,6 +85,7 @@ local DB_DEFAULTS = {
     lock = false,
     test = false,
     soundEnabled = true,
+    debug = false,
     anchors = {
         [1] = { point = "CENTER", relPoint = "CENTER", x = -60, y = 0 },
         [2] = { point = "CENTER", relPoint = "CENTER", x =  60, y = 0 },
@@ -112,6 +113,11 @@ function PH.Core:OnAddonLoaded(event, loadedAddon)
     -- (Future: schema migration goes here, before Merge, when schema > 1 appears.)
     Merge(DB_DEFAULTS, PrescienceHelperDB)
     PH.db = PrescienceHelperDB
+    -- Sync the cached `PH.debug` flag with the persisted `PH.db.debug` toggle so
+    -- gated prints in Tracker/UI/Config see the user's last choice as soon as
+    -- the DB is ready. Config's debug CheckButton OnClick handler also rewrites
+    -- PH.debug whenever the toggle flips so live changes propagate without /reload.
+    PH.debug = PH.db.debug and true or false
     if PH.debug then
         print("[PH] DB initialized.")
     end
