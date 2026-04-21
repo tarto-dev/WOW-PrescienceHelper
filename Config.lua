@@ -489,10 +489,12 @@ local COLOR_WARN = { 1.0, 0.8, 0.0 }
 --   1) PH.db.playerN == ""           -> amber "Pseudo vide"
 --   2) PH.slots[slot].resolved       -> green  "Trouve comme <unit> (<full>)"
 --   3) otherwise (non-empty, unresolved) -> amber "Pas dans le groupe actuel"
--- The \xE2\x9C\x93 / \xE2\x9A\xA0 sequences are the UTF-8 byte encodings of
--- U+2713 (checkmark) and U+26A0 (warning) -- emitting them as raw escapes
--- avoids any editor / locale transcoding risk in the source file while the
--- file itself stays ASCII-clean at the byte level. tostring() on unitID and
+-- The \226\156\147 / \226\154\160 sequences are the UTF-8 byte encodings of
+-- U+2713 (checkmark) and U+26A0 (warning), written as Lua 5.1 decimal
+-- escapes (\NNN) -- WoW's Lua 5.1 interpreter does NOT support the \xHH
+-- hex-escape syntax that landed in Lua 5.2, so hex escapes would be emitted
+-- literally. Decimal escapes keep the file ASCII-clean at the byte level
+-- while rendering as the intended glyph in-game. tostring() on unitID and
 -- fullName is defensive nil-safety -- PH.slots values should be string|nil
 -- per Tracker.lua lines 18-29, but the cost of the guard is zero and it
 -- prevents a nil-concat crash if another addon corrupts PH.slots (T-04-03-02).
@@ -510,14 +512,14 @@ function Config:RefreshResolutionStatus(slot)
 
     local text, color
     if target == "" then
-        text  = "\xE2\x9A\xA0 Pseudo vide"  -- D-12 branch 1
+        text  = "\226\154\160 Pseudo vide"  -- D-12 branch 1
         color = COLOR_WARN
     elseif s and s.resolved then
-        text = ("\xE2\x9C\x93 Trouve comme %s (%s)"):format(
+        text = ("\226\156\147 Trouve comme %s (%s)"):format(
             tostring(s.unitID), tostring(s.fullName))  -- D-12 branch 2
         color = COLOR_OK
     else
-        text  = "\xE2\x9A\xA0 Pas dans le groupe actuel"  -- D-12 branch 3
+        text  = "\226\154\160 Pas dans le groupe actuel"  -- D-12 branch 3
         color = COLOR_WARN
     end
 
@@ -543,10 +545,10 @@ function Config:RefreshMacroStatus(slot)
 
     local text, color
     if not index or index == 0 then
-        text  = ("\xE2\x9A\xA0 Macro \"%s\" introuvable"):format(macroName)  -- D-13
+        text  = ("\226\154\160 Macro \"%s\" introuvable"):format(macroName)  -- D-13
         color = COLOR_WARN
     else
-        text  = ("\xE2\x9C\x93 Macro \"%s\" trouvee"):format(macroName)  -- D-13
+        text  = ("\226\156\147 Macro \"%s\" trouvee"):format(macroName)  -- D-13
         color = COLOR_OK
     end
 
