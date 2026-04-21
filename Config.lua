@@ -197,16 +197,23 @@ end
 buildLayout(PH.Config._panel)
 
 -- 4.1 Author credit footer (Phase 5 polish) ---------------------------------
--- Subtle bottom-left author line. The "FR" suffix is colored as the French
--- flag tricolor via WoW's |cAARRGGBB...|r escape -- bleu #0055A4, blanc
--- #FFFFFF, rouge #EF4135. ASCII characters only (CLAUDE.md byte convention);
--- no Unicode flag emoji because WoW's default font has no Supplementary
--- Multilingual Plane glyphs and would render .notdef squares.
+-- Subtle bottom-left author line ending with a French tricolor "flag" built
+-- from three U+2588 FULL BLOCK glyphs (decimal-escaped \226\150\136 per the
+-- WoW Lua 5.1 escape rule) individually colored via the |cAARRGGBB...|r
+-- inline color escape: bleu #0055A4, blanc #FFFFFF, rouge #EF4135.
+-- The Block Elements range (U+2580-259F) is part of the standard WoW font
+-- glyph coverage, so the three blocks render as solid vertical bars and
+-- visually compose into a tricolor flag at small font size. ASCII at the
+-- byte level: only the literal block bytes are non-ASCII and they are
+-- written as decimal escapes (CLAUDE.md byte convention preserved).
 -- GameFontDisableSmall keeps the credit visually subordinate to the controls.
 local function buildFooter(panel)
     local fs = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     fs:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", LEFT_X, PADDING)
-    fs:SetText("By Claralicious_  |cFF0055A4F|r|cFFFFFFFFR|r|cFFEF4135!|r")
+    fs:SetText("By Claralicious_  "
+        .. "|cFF0055A4\226\150\136|r"
+        .. "|cFFFFFFFF\226\150\136|r"
+        .. "|cFFEF4135\226\150\136|r")
 end
 
 buildFooter(PH.Config._panel)
