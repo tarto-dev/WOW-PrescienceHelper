@@ -231,14 +231,50 @@ function Tracker:Resolve()
     end
 
     if not PH.state.isActive then
-        -- Not active (not in raid, and test is off -- see D-11 invariant held
-        -- by UpdateActivation): leave both slots cleared (RESOLVE-03). We
+        -- Not active (gates all off -- see D-11 invariant held by
+        -- UpdateActivation): leave both slots cleared (RESOLVE-03). We
         -- still fire PH_CACHE_REBUILT so subscribers can react uniformly.
         -- Reading isActive here (not the raid check) enforces D-11.
         if PH.debug then
             print(PH.prefix .. " Tracker:Resolve inactive -- slots cleared")
         end
         PH.Core:Fire("PH_CACHE_REBUILT")
+        return
+    end
+
+    -- Phase 5 dungeon-mode branch: when active because of the dungeon gate
+    -- (5-man party, raid OFF), ignore the configured pseudos and pull the
+    -- two non-Aug DPS from the live party roster via UnitGroupRolesAssigned.
+    -- The user (Aug Evoker) is excluded because we iterate party1..party4
+    -- (which lists OTHER members; the local player is never partyN). If
+    -- fewer than 2 DPS are detectable (queue-pop edge, partial group), the
+    -- remaining slot stays cleared and the macro status FontString surfaces
+    -- "Pas dans le groupe actuel". Macros are NOT touched in dungeon mode
+    -- per the user decision -- the spell's default behavior (in-range DPS
+    -- in priority) handles right-click cast, addon serves only as a buff
+    -- and range observability surface.
+    if gateDungeon() then
+        local found = 0
+        for i = 1, 4 do
+            if found >= 2 then break end
+            local unit = "party" .. i
+            if UnitExists(unit) and UnitGroupRolesAssigned(unit) == "DAMAGER" then
+                local fullName = buildFullName(unit)
+                if fullName then
+                    found = found + 1
+                    local s = PH.slots[found]
+                    s.unitID, s.fullName, s.resolved = unit, fullName, true
+                end
+            end
+        end
+        if PH.debug then
+            print((PH.prefix .. " Tracker:Resolve dungeon-mode found=%d slots=%s,%s"):format(
+                found, tostring(PH.slots[1].fullName), tostring(PH.slots[2].fullName)))
+        end
+        PH.Core:Fire("PH_CACHE_REBUILT")
+        if PH.state.isActive then
+            Tracker:ScanAuras()
+        end
         return
     end
 
@@ -297,12 +333,26 @@ end
 -- nowhere else in the module. PH_ACTIVATED and PH_DEACTIVATED are fired BEFORE the cache
 -- mutation they gate (D-10) so subscribers observe the transition edge first
 -- and only then read the new slot state.
+-- Phase 5 dungeon support: gate helpers. Each returns true when the addon
+-- should be active in the given context. The combined gate sums them via OR
+-- so test mode + raid mode + dungeon mode are independent toggles. db may
+-- legitimately be nil if these run before OnAddonLoaded merges defaults --
+-- treat absent flags as false to keep the cold-boot path safe.
+local function gateRaid()
+    return (PH.db and PH.db.activeRaid == true) and IsInRaid() or false
+end
+
+local function gateDungeon()
+    return (PH.db and PH.db.activeDungeon == true)
+        and IsInGroup() and not IsInRaid() or false
+end
+
 function Tracker:UpdateActivation()
-    -- Test mode bypasses the raid gate entirely (D-16): Phase 3 icons must be
-    -- placeable even when solo. db may legitimately be nil if this runs before
-    -- OnAddonLoaded merges defaults, in which case we treat test as false.
+    -- Test mode bypasses the gates entirely (D-16): Phase 3 icons must be
+    -- placeable even when solo. Combined gate per Phase 5 user decision:
+    -- test OR (active-in-raid AND in-raid) OR (active-in-dungeon AND 5-man).
     local testOn = (PH.db and PH.db.test == true)
-    local now = testOn or IsInRaid()
+    local now = testOn or gateRaid() or gateDungeon()
     if now == PH.state.isActive then return end
 
     if now then
@@ -384,6 +434,22 @@ end
 -- transition, and we still call Resolve unconditionally below for the
 -- already-active case. Double Resolve on cold transitions is cheap.
 function Tracker:OnTestModeChanged(event)
+    if PH.debug then
+        print((PH.prefix .. " Tracker:%s"):format(event))
+    end
+    Tracker:UpdateActivation()
+    if PH.state.isActive then
+        Tracker:Resolve()
+    end
+end
+
+-- Phase 5: synthetic event fired by Config when activeRaid or activeDungeon
+-- checkboxes toggle. Same shape as OnTestModeChanged: UpdateActivation handles
+-- the transition (will fire PH_ACTIVATED/DEACTIVATED if the gate flips), and
+-- the explicit Resolve covers the case where isActive was already true and
+-- only the resolution source changed (e.g. raid->raid+dungeon won't transition
+-- but a future raid->dungeon-only might).
+function Tracker:OnActiveGateChanged(event)
     if PH.debug then
         print((PH.prefix .. " Tracker:%s"):format(event))
     end
@@ -493,9 +559,15 @@ end
 -- Core.lua; we do not redeclare them here. Phase 2 adds UNIT_AURA for aura
 -- tracking (TRACK-03, D-24 unconditional) plus the two synthetic events the
 -- Tracker needs to prime itself (PH_DB_READY) and to react to the Phase 4
--- test toggle (PH_TEST_MODE_CHANGED). Phase 5 adds UNIT_SPELLCAST_SENT for
--- the debug trace surface (gated on PH.debug at handler entry).
-PH.Core:RegisterEvent("UNIT_AURA",            PH.Tracker, "OnUnitAura")
-PH.Core:RegisterEvent("PH_DB_READY",          PH.Tracker, "OnDbReady")
-PH.Core:RegisterEvent("PH_TEST_MODE_CHANGED", PH.Tracker, "OnTestModeChanged")
-PH.Core:RegisterEvent("UNIT_SPELLCAST_SENT",  PH.Tracker, "OnSpellcastSent")
+-- test toggle (PH_TEST_MODE_CHANGED). Phase 5 adds:
+--   - UNIT_SPELLCAST_SENT      -- debug trace surface (gated on PH.debug)
+--   - PLAYER_ROLES_ASSIGNED    -- party role changes need a re-Resolve in
+--                                 dungeon mode (DPS slot may shift)
+--   - PH_ACTIVE_GATE_CHANGED   -- Config fires this when activeRaid /
+--                                 activeDungeon checkboxes toggle
+PH.Core:RegisterEvent("UNIT_AURA",              PH.Tracker, "OnUnitAura")
+PH.Core:RegisterEvent("PH_DB_READY",            PH.Tracker, "OnDbReady")
+PH.Core:RegisterEvent("PH_TEST_MODE_CHANGED",   PH.Tracker, "OnTestModeChanged")
+PH.Core:RegisterEvent("UNIT_SPELLCAST_SENT",    PH.Tracker, "OnSpellcastSent")
+PH.Core:RegisterEvent("PLAYER_ROLES_ASSIGNED",  PH.Tracker, "OnGroupUpdate")
+PH.Core:RegisterEvent("PH_ACTIVE_GATE_CHANGED", PH.Tracker, "OnActiveGateChanged")
