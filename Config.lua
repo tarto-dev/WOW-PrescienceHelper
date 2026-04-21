@@ -23,7 +23,7 @@ local PADDING = 8
 local ROW_HEIGHT = 28
 local EDITBOX_WIDTH = 240
 local LEFT_X = 16
-local RIGHT_X = 260
+local RIGHT_X = 390
 local TOP_Y = -16
 
 -- 2. Widget builder helpers (D-05, D-06, D-08, UI-SPEC templates table) -------
