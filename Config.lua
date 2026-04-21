@@ -69,9 +69,9 @@ end
 -- of DB_DEFAULTS.anchors onto PH.db.anchors, then a call to PH.UI:ReapplyAnchors
 -- (new public method added in Plan 04-04). The button carries its own text so
 -- no separate label FontString is returned -- callers only need the button.
-local function makeButton(parent, labelText)
+local function makeButton(parent, labelText, width)
     local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    btn:SetSize(180, ROW_HEIGHT)
+    btn:SetSize(width or 180, ROW_HEIGHT)
     btn:SetText(labelText)
     return btn
 end
@@ -172,6 +172,17 @@ local function buildLayout(panel)
     local btnReset = makeButton(panel, "Reinitialiser les positions")
     btnReset:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 6 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.reset = btnReset
+
+    -- Left column, row 8: "Enregistrer et recreer les macros". Re-applies the
+    -- canonical PRESCIENCE N body for both slots from current PH.db state via
+    -- applyMacroForSlot. Use cases: user manually wiped/edited the macros and
+    -- wants the addon body restored, or PH.db was edited via /run and the
+    -- macros need to catch up without /reload. Wider button (240) because the
+    -- label exceeds the 180 default. No extra PADDING -- this button is the
+    -- companion of Reset (both are Phase-5 maintenance actions, grouped tight).
+    local btnRecreate = makeButton(panel, "Enregistrer et recreer les macros", 240)
+    btnRecreate:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 7 * ROW_HEIGHT - PADDING)
+    PH.Config._widgets.recreate = btnRecreate
 
     -- Right column (D-06): only rows 1, 2, 7 carry status in v1. Rows 3-6 are
     -- deliberately empty (no FontString reserved) per CONTEXT.md -- the lock /
@@ -494,6 +505,26 @@ local function wireWidgets(panel)
         if PH.debug then
             print("[PH] Anchors reinitialises.")
         end
+    end)
+
+    -- 4) Recreate-macros button wiring (Phase 5 SSOT companion) ------------
+    -- Manual trigger to re-apply the canonical PRESCIENCE N body for both
+    -- slots from current PH.db state. Same combat-gate convention as Reset:
+    -- explicit user-visible refusal in combat (NOT silent defer here -- the
+    -- user clicked a button and expects either action or feedback). Outside
+    -- combat, applyMacroForSlot does the EditMacro/CreateMacro write; the
+    -- subsequent UPDATE_MACROS event flows back through Config:OnMacrosChanged
+    -- which re-paints the macro status FontStrings, so visual feedback is
+    -- automatic and we do not need to call RefreshMacroStatus here.
+    PH.Config._widgets.recreate:SetScript("OnClick", function()
+        if InCombatLockdown() then
+            print("[PH] Impossible en combat. Reessaie apres.")
+            return
+        end
+        if not PH.db then return end
+        applyMacroForSlot(1, PH.db.player1)
+        applyMacroForSlot(2, PH.db.player2)
+        print("[PH] Macros PRESCIENCE 1 / 2 enregistrees depuis la config.")
     end)
 end
 
