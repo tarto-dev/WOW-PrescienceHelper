@@ -463,12 +463,39 @@ function Tracker:TickRange(elapsed)
     end
 end
 
+-- 8.5 Debug spellcast trace (Phase 5 polish) ---------------------------------
+-- UNIT_SPELLCAST_SENT fires when the player initiates a cast (instant or
+-- channelled). Payload: (unit, target, castGUID, spellID) where `target` is
+-- the resolved unit's fullName (Nom-Realm) at cast time. We filter to:
+--   1) unit == "player" -- ignore casts from raid members and pets
+--   2) spellID == Prescience -- ignore everything else the player casts
+--   3) target matches PH.slots[slot].fullName -- only print when the cast
+--      lands on one of our two tracked players (i.e. fired by the secure
+--      macro we expose on the icon, OR via the user's own keybind on a
+--      tracked player -- both legitimate "macro N usage" surfaces)
+-- Print is gated on PH.debug so a chatty raid pull stays silent unless the
+-- user explicitly enabled the trace via the Config panel "Mode debug" check.
+function Tracker:OnSpellcastSent(event, unit, target, castGUID, spellID)
+    if unit ~= "player" then return end
+    if spellID ~= SPELL_ID_PRESCIENCE then return end
+    if not PH.debug then return end
+    if not target or target == "" then return end
+    for slot = 1, 2 do
+        if PH.slots[slot].fullName == target then
+            print(("[PH] Macro %d utilisee sur %s"):format(slot, target))
+            return
+        end
+    end
+end
+
 -- 9. Event registrations (D-31) ----------------------------------------------
 -- Phase 1 already wired PLAYER_ENTERING_WORLD and GROUP_ROSTER_UPDATE from
 -- Core.lua; we do not redeclare them here. Phase 2 adds UNIT_AURA for aura
 -- tracking (TRACK-03, D-24 unconditional) plus the two synthetic events the
 -- Tracker needs to prime itself (PH_DB_READY) and to react to the Phase 4
--- test toggle (PH_TEST_MODE_CHANGED).
+-- test toggle (PH_TEST_MODE_CHANGED). Phase 5 adds UNIT_SPELLCAST_SENT for
+-- the debug trace surface (gated on PH.debug at handler entry).
 PH.Core:RegisterEvent("UNIT_AURA",            PH.Tracker, "OnUnitAura")
 PH.Core:RegisterEvent("PH_DB_READY",          PH.Tracker, "OnDbReady")
 PH.Core:RegisterEvent("PH_TEST_MODE_CHANGED", PH.Tracker, "OnTestModeChanged")
+PH.Core:RegisterEvent("UNIT_SPELLCAST_SENT",  PH.Tracker, "OnSpellcastSent")
