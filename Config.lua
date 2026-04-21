@@ -286,6 +286,72 @@ local DB_DEFAULT_ANCHORS = {
     [2] = { point = "CENTER", relPoint = "CENTER", x =  60, y = 0 },
 }
 
+-- Phase 5 polish: macro single-source-of-truth (REVERSES Phase 4 D-29) -------
+-- The user's chosen path: PH.db.playerN is the SOLE source of truth for the
+-- secure-button target. Whenever PH.db.playerN changes (EditBox commit) or at
+-- login (PH_DB_READY), Config writes the canonical macro body into
+-- "PRESCIENCE N" via EditMacro / CreateMacro so right-click on the icon always
+-- targets the player named in the addon, with no manual macro maintenance.
+--
+-- Body shape: #showtooltip Prescience + /cast [@<pseudo>,help,nodead] Prescience
+--   - help,nodead avoids "invalid target" cast failures on dead/hostile units
+--   - empty pseudo collapses to [@none] so the macro stays defined but inert
+--     (rather than deleted -- keeps the GetMacroIndexByName status check stable)
+--
+-- Macro slot: per-character (CreateMacro perCharacter=true, slots 1-18) so an
+-- alt Aug Evoker can have different targets without colliding with the main.
+-- Once the macro exists EditMacro keeps it where it is; we never migrate
+-- between global and per-character.
+--
+-- Combat: EditMacro and CreateMacro both error during combat lockdown. The
+-- helper gates on InCombatLockdown() and stashes the pending pseudo in
+-- _macroPending[slot]; PLAYER_REGEN_ENABLED flushes deferred writes once
+-- combat ends. Mirrors Phase 3 _anchorPending pattern.
+--
+-- Icon: nil on EditMacro keeps the existing icon (preserves a user re-icon).
+-- CreateMacro uses INV_Misc_QuestionMark as a neutral default -- the addon's
+-- icon button shows its own texture, the macro's stored icon is never seen.
+local MACRO_NAME_FMT = "PRESCIENCE %d"
+local MACRO_ICON     = "INV_Misc_QuestionMark"
+local _macroPending  = _macroPending or {}
+
+local function buildMacroBody(pseudo)
+    if not pseudo or pseudo == "" then
+        return "#showtooltip Prescience\n/cast [@none,help,nodead] Prescience"
+    end
+    return ("#showtooltip Prescience\n/cast [@%s,help,nodead] Prescience"):format(pseudo)
+end
+
+local function applyMacroForSlot(slot, pseudo)
+    if slot ~= 1 and slot ~= 2 then return end
+    if InCombatLockdown() then
+        _macroPending[slot] = pseudo or ""
+        if PH.debug then
+            print(("[PH] Config:Macro %d update deferred (combat)"):format(slot))
+        end
+        return
+    end
+    local macroName = MACRO_NAME_FMT:format(slot)
+    local body = buildMacroBody(pseudo)
+    local idx = GetMacroIndexByName(macroName)
+    if idx and idx > 0 then
+        EditMacro(idx, macroName, nil, body)
+    else
+        -- perCharacter=true => character-specific slot (1-18); falls back to
+        -- nothing if the user is at their per-character macro cap. CreateMacro
+        -- can also error on overflow, so wrap in pcall to keep the EditBox
+        -- commit path resilient.
+        local ok, err = pcall(CreateMacro, macroName, MACRO_ICON, body, true)
+        if not ok and PH.debug then
+            print(("[PH] Config:CreateMacro %s failed: %s"):format(macroName, tostring(err)))
+        end
+    end
+    _macroPending[slot] = nil
+    if PH.debug then
+        print(("[PH] Config:Macro %d ecrite -> %s"):format(slot, body:gsub("\n", " | ")))
+    end
+end
+
 -- wireWidgets(panel) -- install every widget script in one pass. Declared as
 -- a module-local function (not a Config method) because the wiring is a
 -- one-shot at file load, not a reusable operation -- there is no "re-wire"
@@ -316,6 +382,10 @@ local function wireWidgets(panel)
             if PH.Tracker and PH.Tracker.Resolve then
                 PH.Tracker:Resolve()
             end
+            -- Phase 5 SSOT: rewrite the PRESCIENCE N macro body so the
+            -- secure-button right-click target tracks the new pseudo.
+            -- Combat-deferred via _macroPending if InCombatLockdown().
+            applyMacroForSlot(slot, value)
         end)
         -- Enter-to-commit: ClearFocus triggers the focus-lost handler above,
         -- which does the actual save. Standard WoW idiom -- avoids duplicating
@@ -516,6 +586,36 @@ function Config:OnDbReady(event)
     -- whether the user is in a raid at login; RefreshAll is idempotent and
     -- reads live PH.slots + PH.db, so it paints the correct state regardless.
     Config:RefreshAll()
+    -- Phase 5 SSOT: macro initial sync. Push PH.db.playerN into the
+    -- PRESCIENCE N macro body on every login so a fresh install creates the
+    -- two macros automatically and a /reload re-asserts the canonical body
+    -- (intentional overwrite -- "single source of truth" means the addon
+    -- owns the macro body, not the user). Combat-safe: applyMacroForSlot
+    -- defers to _macroPending and PLAYER_REGEN_ENABLED if /reload happens
+    -- mid-combat.
+    applyMacroForSlot(1, PH.db.player1)
+    applyMacroForSlot(2, PH.db.player2)
+end
+
+-- Config:OnRegenEnabled -- PLAYER_REGEN_ENABLED dispatcher subscriber. Flushes
+-- any macro updates that were stashed in _macroPending during combat. Phase 5
+-- SSOT companion to applyMacroForSlot's combat gate; mirrors the Phase 3
+-- _anchorPending / OnRegenEnabled pattern in UI.lua.
+function Config:OnRegenEnabled(event)
+    if not next(_macroPending) then return end
+    if PH.debug then
+        print("[PH] Config:OnRegenEnabled flushing pending macro writes.")
+    end
+    -- Snapshot keys before iterating: applyMacroForSlot mutates _macroPending
+    -- (sets the slot key to nil on success), and pairs() iteration over a
+    -- mutating table is undefined.
+    local pending = {}
+    for slot, pseudo in pairs(_macroPending) do
+        pending[slot] = pseudo
+    end
+    for slot, pseudo in pairs(pending) do
+        applyMacroForSlot(slot, pseudo)
+    end
 end
 
 -- Config:Open -- bound by SlashCmdList["PH"] in Core.lua (FROZEN, lines 129-133).
@@ -707,11 +807,12 @@ end
 
 -- 6. Event registrations ------------------------------------------------------
 -- Phase 4 Config claims 4 event subscriptions spread across Plans 04-01..04-03.
--- After Plan 04-03 the registration block is COMPLETE with 4 / 4:
---   * 04-01: PH_DB_READY         -> Config:OnDbReady
---   * 04-03: PH_CACHE_REBUILT    -> Config:OnCacheRebuilt       (resolution refresh)
---   * 04-03: UPDATE_MACROS       -> Config:OnMacrosChanged      (macro refresh + PH_MACROS_CHANGED fan-out)
+-- Phase 5 SSOT bumps the count from 4 to 5:
+--   * 04-01: PH_DB_READY          -> Config:OnDbReady
+--   * 04-03: PH_CACHE_REBUILT     -> Config:OnCacheRebuilt       (resolution refresh)
+--   * 04-03: UPDATE_MACROS        -> Config:OnMacrosChanged      (macro refresh + PH_MACROS_CHANGED fan-out)
 --   * 04-03: PH_TEST_MODE_CHANGED -> Config:OnTestModeChanged    (test-mode resolution re-render)
+--   * 05:    PLAYER_REGEN_ENABLED -> Config:OnRegenEnabled       (flush deferred macro writes from _macroPending)
 -- Notes:
 --   - UPDATE_MACROS is WoW-native so it flows through Core.lua's
 --     PH.Core._dispatcher:RegisterEvent path (Core.lua line 63 region).
@@ -726,3 +827,4 @@ PH.Core:RegisterEvent("PH_DB_READY", PH.Config, "OnDbReady")
 PH.Core:RegisterEvent("PH_CACHE_REBUILT",     PH.Config, "OnCacheRebuilt")
 PH.Core:RegisterEvent("UPDATE_MACROS",        PH.Config, "OnMacrosChanged")
 PH.Core:RegisterEvent("PH_TEST_MODE_CHANGED", PH.Config, "OnTestModeChanged")
+PH.Core:RegisterEvent("PLAYER_REGEN_ENABLED", PH.Config, "OnRegenEnabled")
