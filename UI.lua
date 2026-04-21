@@ -144,6 +144,15 @@ local function createButton(slot)
     button.timer:SetPoint("CENTER", button, "CENTER", 0, 0)
     button.timer:SetText("")
 
+    -- Phase 5 polish: pseudo (without realm) under the icon. GameFontNormalSmall
+    -- keeps the label visually subordinate to the timer; anchored 2 px below the
+    -- button so it never overlaps the swipe / border / timer trio. Updated by
+    -- UI:RefreshNameLabel(slot) on every PH_CACHE_REBUILT or activation
+    -- transition -- the label is blank when the slot is unresolved or empty.
+    button.nameLabel = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    button.nameLabel:SetPoint("TOP", button, "BOTTOM", 0, -2)
+    button.nameLabel:SetText("")
+
     -- Drag enablement (D-21, UI-08, UI-09). RegisterForDrag("LeftButton") binds
     -- the drag gesture to the LEFT mouse button, leaving RIGHT-click untouched
     -- so the secure macro binding (type2/macro2 wired by UI:ApplySecureBinding
@@ -363,6 +372,7 @@ function UI:OnActivated(event)
     -- one-tick "static grey" flicker if event ordering ever shifts.
     for slot = 1, 2 do
         UI:RenderResolution(slot)
+        UI:RefreshNameLabel(slot)
     end
 end
 
@@ -540,6 +550,7 @@ function UI:OnCacheRebuilt(event)
     if not PH.state.isActive then return end
     for slot = 1, 2 do
         UI:RenderResolution(slot)
+        UI:RefreshNameLabel(slot)
     end
     -- Secure binding refresh (D-17). Binding values are slot-dependent but
     -- stable ("PRESCIENCE "..slot), so this is effectively a one-time setup
@@ -551,6 +562,32 @@ function UI:OnCacheRebuilt(event)
     for slot = 1, 2 do
         UI:ApplySecureBinding(slot)
     end
+end
+
+-- UI:RefreshNameLabel(slot) -- Phase 5 polish. Paints button.nameLabel with
+-- the resolved player's pseudo (without realm) below the icon. Reads PH.slots
+-- and strips everything from the first "-" onward to drop the realm suffix
+-- ("Tarto-Hyjal" -> "Tarto"). Empty when the slot is unresolved or fullName
+-- is missing. Defensive guards: button absence (deactivated UI), nameLabel
+-- absence (createButton skipped, e.g. test harness), PH.slots absence
+-- (pre-PH_DB_READY) all return early without erroring.
+function UI:RefreshNameLabel(slot)
+    local button = PH.UI._buttons[slot]
+    if not button or not button.nameLabel then return end
+    if not PH.slots then
+        button.nameLabel:SetText("")
+        return
+    end
+    local s = PH.slots[slot]
+    if not s or not s.resolved or not s.fullName or s.fullName == "" then
+        button.nameLabel:SetText("")
+        return
+    end
+    -- Strip realm suffix: "Nom-Realm" -> "Nom". Also handles "player" (test mode
+    -- unitID) and any future bare unitID where no "-" is present (string.match
+    -- returns nil, fallback to the original).
+    local pseudo = s.fullName:match("^([^-]+)") or s.fullName
+    button.nameLabel:SetText(pseudo)
 end
 
 -- PH_AURA_CHANGED(slot): Tracker saw a Prescience aura state delta on this
