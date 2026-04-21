@@ -139,14 +139,6 @@ local function applyAnchor(button, slot)
     button._anchorPending = nil
 end
 
--- Visual state: "unresolved" / "absent" / "oor" / "inrange".
-local function slotVisualState(slot)
-    local s = PH.slots[slot]
-    if not s.resolved then return "unresolved" end
-    if not s.hasPrescience then return "absent" end
-    if s.inRange then return "inrange" else return "oor" end
-end
-
 local function setBorderColor(button, color)
     local r, g, b, a = color[1], color[2], color[3], color[4]
     button.borderTop:SetColorTexture(r, g, b, a)
@@ -225,10 +217,17 @@ function UI:OnDeactivated(event)
     end
 end
 
+-- Two orthogonal visual axes:
+--   border color  = distance  (green in-range, red out-of-range, grey unresolved)
+--   icon + pulse  = buff      (saturated+no-pulse when present, desat+pulse when absent)
+-- RenderResolution is the full repaint entry; RenderAura owns buff visuals only;
+-- RenderRange owns the border only. Unresolved state is handled exclusively by
+-- RenderResolution — the other two short-circuit when s.resolved is false.
 function UI:RenderResolution(slot)
     local button = PH.UI._buttons[slot]
     if not button then return end
-    if slotVisualState(slot) == "unresolved" then
+    local s = PH.slots[slot]
+    if not s.resolved then
         setBorderColor(button, BORDER_GREY)
         button.icon:SetDesaturated(true)
         stopPulse(button)
@@ -237,41 +236,36 @@ function UI:RenderResolution(slot)
         return
     end
     UI:RenderAura(slot)
+    UI:RenderRange(slot)
 end
 
 function UI:RenderAura(slot)
     local button = PH.UI._buttons[slot]
     if not button then return end
-    local state = slotVisualState(slot)
-    if state == "unresolved" then
-        UI:RenderResolution(slot)
-        return
-    end
-    if state == "absent" then
-        setBorderColor(button, BORDER_RED)
+    local s = PH.slots[slot]
+    if not s.resolved then return end
+    if not s.hasPrescience then
         button.icon:SetDesaturated(true)
         startPulse(button)
         button.cd:Clear()
         stopTimerLoop(button)
         return
     end
-    -- Active: full color, no pulse, swipe running. Start derived from
+    -- Buff active: full color, no pulse, swipe running. Start derived from
     -- expirationTime - duration so a refresh restarts the swipe correctly.
     button.icon:SetDesaturated(false)
     stopPulse(button)
-    local s = PH.slots[slot]
     local start = s.expirationTime - s.duration
     CooldownFrame_Set(button.cd, start, s.duration, 1)
     startTimerLoop(button, slot)
-    UI:RenderRange(slot)
 end
 
 function UI:RenderRange(slot)
     local button = PH.UI._buttons[slot]
     if not button then return end
-    local state = slotVisualState(slot)
-    if state == "unresolved" or state == "absent" then return end
-    if state == "inrange" then
+    local s = PH.slots[slot]
+    if not s.resolved then return end
+    if s.inRange then
         setBorderColor(button, BORDER_GREEN)
     else
         setBorderColor(button, BORDER_RED)
