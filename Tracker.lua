@@ -25,11 +25,9 @@ local rosterDeadline = 0
 local rosterPending  = false
 local rangeElapsed   = 0.0
 
--- Prescience has two distinct spellIDs: 409311 is the spell the player casts
--- (used by IsSpellInRange and UNIT_SPELLCAST_SENT), 410089 is the buff applied
--- on the target and surfaced by AuraUtil.ForEachAura. Matching aura.spellId
--- against the cast ID silently fails -- no match, hasPrescience stays false.
--- Numeric IDs, NOT localised names: string-based APIs return nil on non-enUS.
+-- Prescience has two spellIDs: 409311 for the cast (IsSpellInRange,
+-- UNIT_SPELLCAST_SENT) and 410089 for the buff applied on the target
+-- (AuraUtil.ForEachAura). Numeric IDs are locale-independent.
 local SPELL_ID_PRESCIENCE_CAST = 409311
 local SPELL_ID_PRESCIENCE_BUFF = 410089
 
@@ -90,13 +88,11 @@ local function gateDungeon()
         and IsInGroup() and not IsInRaid() or false
 end
 
--- HELPFUL|PLAYER filter restricts iteration to player-cast auras, bypassing
--- forbidden / "secret" auras applied by raid bosses or other systems — those
--- throw "attempt to compare field 'spellId' (a secret number value tainted by
--- 'PrescienceHelper')" on direct field access. The pcall guard is defense in
--- depth in case an edge aura still slips through.
--- TRACK-02 (no cross-Aug false positives) is enforced by the HELPFUL|PLAYER
--- filter alone: it iterates only auras whose caster is the local player.
+-- HELPFUL|PLAYER filter restricts iteration to auras cast by the local player,
+-- which also excludes other Augmentation Evokers' buffs. It bypasses forbidden
+-- / "secret" auras applied by raid bosses that would throw "attempt to compare
+-- field 'spellId' (a secret number value tainted by 'PrescienceHelper')" on
+-- direct field access. The pcall guard is defense in depth.
 local function scanAurasForSlot(slot)
     local s = PH.slots[slot]
     if not s.resolved or not s.unitID then
