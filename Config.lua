@@ -160,7 +160,7 @@ local function buildLayout(panel)
 
     -- Left column, row 6: debug CheckButton. Toggles `PH.debug` (and persists
     -- to `PH.db.debug`) which gates verbose prints across Core/Tracker/UI/Config
-    -- plus the Tracker UNIT_SPELLCAST_SENT trace ("[PH] Macro N utilisee sur ...").
+    -- plus the Tracker UNIT_SPELLCAST_SENT trace (PH.prefix .. " Macro N utilisee sur ...").
     local cbDebug, lbDebug = makeCheckButton(panel, "Mode debug")
     cbDebug:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 5 * ROW_HEIGHT)
     lbDebug:SetPoint("LEFT", cbDebug, "RIGHT", PADDING, 0)
@@ -338,7 +338,7 @@ local function applyMacroForSlot(slot, pseudo)
     if InCombatLockdown() then
         _macroPending[slot] = pseudo or ""
         if PH.debug then
-            print(("[PH] Config:Macro %d update deferred (combat)"):format(slot))
+            print((PH.prefix .. " Config:Macro %d update deferred (combat)"):format(slot))
         end
         return
     end
@@ -354,12 +354,12 @@ local function applyMacroForSlot(slot, pseudo)
         -- commit path resilient.
         local ok, err = pcall(CreateMacro, macroName, MACRO_ICON, body, true)
         if not ok and PH.debug then
-            print(("[PH] Config:CreateMacro %s failed: %s"):format(macroName, tostring(err)))
+            print((PH.prefix .. " Config:CreateMacro %s failed: %s"):format(macroName, tostring(err)))
         end
     end
     _macroPending[slot] = nil
     if PH.debug then
-        print(("[PH] Config:Macro %d ecrite -> %s"):format(slot, body:gsub("\n", " | ")))
+        print((PH.prefix .. " Config:Macro %d ecrite -> %s"):format(slot, body:gsub("\n", " | ")))
     end
 end
 
@@ -388,7 +388,7 @@ local function wireWidgets(panel)
             self:SetText(value)
             self:SetCursorPosition(0)
             if PH.debug then
-                print(("[PH] Config:EditBox slot=%d value=%q"):format(slot, value))
+                print((PH.prefix .. " Config:EditBox slot=%d value=%q"):format(slot, value))
             end
             if PH.Tracker and PH.Tracker.Resolve then
                 PH.Tracker:Resolve()
@@ -416,7 +416,7 @@ local function wireWidgets(panel)
         if not PH.db then return end
         PH.db.lock = self:GetChecked() and true or false
         if PH.debug then
-            print(("[PH] Config:CheckButton lock=%s"):format(tostring(PH.db.lock)))
+            print((PH.prefix .. " Config:CheckButton lock=%s"):format(tostring(PH.db.lock)))
         end
     end)
 
@@ -431,7 +431,7 @@ local function wireWidgets(panel)
         if not PH.db then return end
         PH.db.test = self:GetChecked() and true or false
         if PH.debug then
-            print(("[PH] Config:CheckButton test=%s"):format(tostring(PH.db.test)))
+            print((PH.prefix .. " Config:CheckButton test=%s"):format(tostring(PH.db.test)))
         end
         PH.Core:Fire("PH_TEST_MODE_CHANGED")
     end)
@@ -443,7 +443,7 @@ local function wireWidgets(panel)
         if not PH.db then return end
         PH.db.soundEnabled = self:GetChecked() and true or false
         if PH.debug then
-            print(("[PH] Config:CheckButton soundEnabled=%s"):format(tostring(PH.db.soundEnabled)))
+            print((PH.prefix .. " Config:CheckButton soundEnabled=%s"):format(tostring(PH.db.soundEnabled)))
         end
     end)
 
@@ -459,7 +459,7 @@ local function wireWidgets(panel)
         -- Print AFTER the toggle so flipping ON immediately confirms the change
         -- in chat; flipping OFF stays silent (we just disabled the prints).
         if PH.debug then
-            print(("[PH] Config:CheckButton debug=%s"):format(tostring(PH.db.debug)))
+            print((PH.prefix .. " Config:CheckButton debug=%s"):format(tostring(PH.db.debug)))
         end
     end)
 
@@ -481,7 +481,7 @@ local function wireWidgets(panel)
         -- Phase 3's OnDragStop, a deliberate Reset click deserves an explicit
         -- print so the user knows the action was refused, not lost.
         if InCombatLockdown() then
-            print("[PH] Impossible en combat. Reessaie apres.")
+            print(PH.prefix .. " Impossible en combat. Reessaie apres.")
             return
         end
         if not (PH.db and PH.db.anchors) then return end
@@ -503,7 +503,7 @@ local function wireWidgets(panel)
         end
         -- Step 4 (D-25): optional debug trace gated on PH.debug.
         if PH.debug then
-            print("[PH] Anchors reinitialises.")
+            print(PH.prefix .. " Anchors reinitialises.")
         end
     end)
 
@@ -518,13 +518,13 @@ local function wireWidgets(panel)
     -- automatic and we do not need to call RefreshMacroStatus here.
     PH.Config._widgets.recreate:SetScript("OnClick", function()
         if InCombatLockdown() then
-            print("[PH] Impossible en combat. Reessaie apres.")
+            print(PH.prefix .. " Impossible en combat. Reessaie apres.")
             return
         end
         if not PH.db then return end
         applyMacroForSlot(1, PH.db.player1)
         applyMacroForSlot(2, PH.db.player2)
-        print("[PH] Macros PRESCIENCE 1 / 2 enregistrees depuis la config.")
+        print(PH.prefix .. " Macros PRESCIENCE 1 / 2 enregistrees depuis la config.")
     end)
 end
 
@@ -595,7 +595,7 @@ function Config:RegisterPanel()
     Settings.RegisterAddOnCategory(category)
     PH.Config._category = category
     if PH.debug then
-        print(("[PH] Config:RegisterPanel category.ID=%s"):format(tostring(category.ID)))
+        print((PH.prefix .. " Config:RegisterPanel category.ID=%s"):format(tostring(category.ID)))
     end
 end
 
@@ -608,7 +608,7 @@ end
 -- (module, event, ...); the event string is used only for the debug trace.
 function Config:OnDbReady(event)
     if PH.debug then
-        print(("[PH] Config:%s"):format(event))
+        print((PH.prefix .. " Config:%s"):format(event))
     end
     Config:RegisterPanel()
     -- D-14: initial status paint so the panel is diagnosable immediately when
@@ -635,7 +635,7 @@ end
 function Config:OnRegenEnabled(event)
     if not next(_macroPending) then return end
     if PH.debug then
-        print("[PH] Config:OnRegenEnabled flushing pending macro writes.")
+        print(PH.prefix .. " Config:OnRegenEnabled flushing pending macro writes.")
     end
     -- Snapshot keys before iterating: applyMacroForSlot mutates _macroPending
     -- (sets the slot key to nil on success), and pairs() iteration over a
@@ -664,7 +664,7 @@ end
 function Config:Open(msg)
     if not PH.Config._category then
         if PH.debug then
-            print("[PH] Config:Open called before PH_DB_READY -- panel not yet registered.")
+            print(PH.prefix .. " Config:Open called before PH_DB_READY -- panel not yet registered.")
         end
         return
     end
@@ -789,7 +789,7 @@ end
 -- status is orthogonal and refreshes on UPDATE_MACROS only.
 function Config:OnCacheRebuilt(event)
     if PH.debug then
-        print(("[PH] Config:%s"):format(event))
+        print((PH.prefix .. " Config:%s"):format(event))
     end
     for slot = 1, 2 do
         Config:RefreshResolutionStatus(slot)
@@ -810,7 +810,7 @@ end
 -- dynamic construction (T-04-03-05 spoofing mitigation).
 function Config:OnMacrosChanged(event, ...)
     if PH.debug then
-        print(("[PH] Config:%s"):format(event))
+        print((PH.prefix .. " Config:%s"):format(event))
     end
     for slot = 1, 2 do
         Config:RefreshMacroStatus(slot)
@@ -829,7 +829,7 @@ end
 -- fire from Tracker as a consequence; cheap per D-16.
 function Config:OnTestModeChanged(event)
     if PH.debug then
-        print(("[PH] Config:%s"):format(event))
+        print((PH.prefix .. " Config:%s"):format(event))
     end
     for slot = 1, 2 do
         Config:RefreshResolutionStatus(slot)

@@ -191,7 +191,7 @@ local function createButton(slot)
             y        = y        or 0,
         }
         if PH.debug then
-            print(("[PH] UI:OnDragStop slot=%d point=%s relPoint=%s x=%.0f y=%.0f"):format(
+            print((PH.prefix .. " UI:OnDragStop slot=%d point=%s relPoint=%s x=%.0f y=%.0f"):format(
                 slot, tostring(point), tostring(relPoint), x or 0, y or 0))
         end
     end)
@@ -350,7 +350,7 @@ end
 -- updates between sessions are always re-applied.
 function UI:OnActivated(event)
     if PH.debug then
-        print(("[PH] UI:%s"):format(event))
+        print((PH.prefix .. " UI:%s"):format(event))
     end
     for slot = 1, 2 do
         applyAnchor(PH.UI._buttons[slot], slot)
@@ -376,7 +376,7 @@ end
 -- visibility flip.
 function UI:OnDeactivated(event)
     if PH.debug then
-        print(("[PH] UI:%s"):format(event))
+        print((PH.prefix .. " UI:%s"):format(event))
     end
     PH.UI._root:Hide()
     -- Teardown per D-16: stop any active pulse and clear the cooldown swipe so
@@ -535,7 +535,7 @@ end
 -- payload on this event per 02-CONTEXT D-04 (consumers re-read PH.slots).
 function UI:OnCacheRebuilt(event)
     if PH.debug then
-        print(("[PH] UI:%s"):format(event))
+        print((PH.prefix .. " UI:%s"):format(event))
     end
     if not PH.state.isActive then return end
     for slot = 1, 2 do
@@ -560,7 +560,7 @@ end
 -- payload guard rejects malformed slot values before we index PH.slots[slot].
 function UI:OnAuraChanged(event, slot)
     if PH.debug then
-        print(("[PH] UI:%s slot=%s"):format(event, tostring(slot)))
+        print((PH.prefix .. " UI:%s slot=%s"):format(event, tostring(slot)))
     end
     if not PH.state.isActive then return end
     if slot ~= 1 and slot ~= 2 then return end
@@ -573,7 +573,7 @@ end
 -- RenderAura (D-14 set-once-per-cast). T-03-02-01 mitigation as above.
 function UI:OnRangeChanged(event, slot)
     if PH.debug then
-        print(("[PH] UI:%s slot=%s"):format(event, tostring(slot)))
+        print((PH.prefix .. " UI:%s slot=%s"):format(event, tostring(slot)))
     end
     if not PH.state.isActive then return end
     if slot ~= 1 and slot ~= 2 then return end
@@ -594,7 +594,7 @@ end
 -- anything other than 1 or 2 before we touch state.
 function UI:OnPrescienceDropped(event, slot)
     if PH.debug then
-        print(("[PH] UI:%s slot=%s"):format(event, tostring(slot)))
+        print((PH.prefix .. " UI:%s slot=%s"):format(event, tostring(slot)))
     end
     if not PH.state.isActive then return end
     if slot ~= 1 and slot ~= 2 then return end
@@ -615,7 +615,7 @@ end
 -- list change was unrelated to our slot names (the typical case).
 function UI:OnMacrosChanged(event)
     if PH.debug then
-        print(("[PH] UI:%s"):format(event))
+        print((PH.prefix .. " UI:%s"):format(event))
     end
     for slot = 1, 2 do
         UI:ApplySecureBinding(slot)
@@ -644,7 +644,7 @@ function UI:ApplySecureBinding(slot)
     button:SetAttribute("type2", "macro")
     button:SetAttribute("macro2", "PRESCIENCE " .. slot)
     if PH.debug then
-        print(("[PH] UI:ApplySecureBinding slot=%d macro=PRESCIENCE %d"):format(slot, slot))
+        print((PH.prefix .. " UI:ApplySecureBinding slot=%d macro=PRESCIENCE %d"):format(slot, slot))
     end
 end
 
@@ -656,7 +656,7 @@ end
 -- the missed-in-combat case is covered by two independent recovery paths.
 function UI:OnRegenDisabled(event)
     if PH.debug then
-        print(("[PH] UI:%s"):format(event))
+        print((PH.prefix .. " UI:%s"):format(event))
     end
     PH.state.inCombat = true
 end
@@ -670,7 +670,7 @@ end
 -- harmless no-op on WoW's secure attribute layer.
 function UI:OnRegenEnabled(event)
     if PH.debug then
-        print(("[PH] UI:%s"):format(event))
+        print((PH.prefix .. " UI:%s"):format(event))
     end
     PH.state.inCombat = false
     -- Flush pending anchor applies that were deferred because PH_ACTIVATED fired
@@ -700,7 +700,7 @@ end
 -- style, so the dual gate covers both sides of the call site.
 function UI:ReapplyAnchors()
     if PH.debug then
-        print("[PH] UI:ReapplyAnchors")
+        print(PH.prefix .. " UI:ReapplyAnchors")
     end
     for slot = 1, 2 do
         local button = PH.UI._buttons[slot]

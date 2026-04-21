@@ -22,6 +22,14 @@ PH.Config  = PH.Config  or {}
 -- Permanent infrastructure, not Phase 1 scaffolding. `PH.debug` gates verbose
 -- prints; `PH.state.counters` tracks dispatch counts per event and is inspected
 -- via `/dump PH.state` in-game.
+--
+-- Phase 5 polish: `PH.prefix` is the canonical chat-line prefix used by every
+-- addon-originated print across Core/Tracker/UI/Config. Colors the brackets
+-- in light red (|cFFFF6666) and the "PH" glyphs in light green (|cFF66FF66)
+-- so addon output stands out from raid chat spam without needing chat-filter
+-- rules. Every `print(PH.prefix .. "...")` site uses `PH.prefix .. " ..."` instead,
+-- so changing the palette here is a one-line edit.
+PH.prefix = "|cFFFF6666[|r|cFF66FF66PH|r|cFFFF6666]|r"
 PH.debug = false
 PH.state = PH.state or { counters = {} }
 
@@ -41,7 +49,7 @@ local function dispatch(event, ...)
     if not list then return end
     PH.state.counters[event] = (PH.state.counters[event] or 0) + 1
     if PH.debug then
-        print(("[PH] Event: %s"):format(event))
+        print((PH.prefix .. " Event: %s"):format(event))
     end
     for i = 1, #list do
         local sub = list[i]
@@ -119,7 +127,7 @@ function PH.Core:OnAddonLoaded(event, loadedAddon)
     -- PH.debug whenever the toggle flips so live changes propagate without /reload.
     PH.debug = PH.db.debug and true or false
     if PH.debug then
-        print("[PH] DB initialized.")
+        print(PH.prefix .. " DB initialized.")
     end
     -- Forward contract: downstream phases can subscribe to PH_DB_READY for a
     -- deterministic hook after defaults are merged. Phase 1 has no subscribers.

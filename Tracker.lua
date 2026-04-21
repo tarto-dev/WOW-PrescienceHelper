@@ -216,7 +216,7 @@ function Tracker:Resolve()
             s.resolved = true
         end
         if PH.debug then
-            print(("[PH] Tracker:Resolve test-mode slots=%s"):format(tostring(selfName)))
+            print((PH.prefix .. " Tracker:Resolve test-mode slots=%s"):format(tostring(selfName)))
         end
         PH.Core:Fire("PH_CACHE_REBUILT")
         -- Prime aura state in test mode too so downstream consumers see the full
@@ -236,7 +236,7 @@ function Tracker:Resolve()
         -- still fire PH_CACHE_REBUILT so subscribers can react uniformly.
         -- Reading isActive here (not the raid check) enforces D-11.
         if PH.debug then
-            print("[PH] Tracker:Resolve inactive -- slots cleared")
+            print(PH.prefix .. " Tracker:Resolve inactive -- slots cleared")
         end
         PH.Core:Fire("PH_CACHE_REBUILT")
         return
@@ -276,7 +276,7 @@ function Tracker:Resolve()
     end
 
     if PH.debug then
-        print(("[PH] Tracker:Resolve slot1=%s slot2=%s"):format(
+        print((PH.prefix .. " Tracker:Resolve slot1=%s slot2=%s"):format(
             tostring(PH.slots[1].unitID), tostring(PH.slots[2].unitID)))
     end
     PH.Core:Fire("PH_CACHE_REBUILT")
@@ -343,7 +343,7 @@ end
 -- Resolve anyway so the slots reflect the current roster.
 function Tracker:OnPlayerEnteringWorld(event, ...)
     if PH.debug then
-        print(("[PH] Tracker:%s (count=%d)"):format(event, PH.state.counters[event] or 0))
+        print((PH.prefix .. " Tracker:%s (count=%d)"):format(event, PH.state.counters[event] or 0))
     end
     local wasActive = PH.state.isActive
     Tracker:UpdateActivation()
@@ -359,7 +359,7 @@ end
 -- we just left the raid and Resolve would be a no-op anyway.
 function Tracker:OnGroupUpdate(event, ...)
     if PH.debug then
-        print(("[PH] Tracker:%s (count=%d)"):format(event, PH.state.counters[event] or 0))
+        print((PH.prefix .. " Tracker:%s (count=%d)"):format(event, PH.state.counters[event] or 0))
     end
     Tracker:UpdateActivation()
     if PH.state.isActive then
@@ -372,7 +372,7 @@ end
 -- UpdateActivation will call it during any cold transition to active.
 function Tracker:OnDbReady(event)
     if PH.debug then
-        print(("[PH] Tracker:%s"):format(event))
+        print((PH.prefix .. " Tracker:%s"):format(event))
     end
     Tracker:UpdateActivation()
 end
@@ -385,7 +385,7 @@ end
 -- already-active case. Double Resolve on cold transitions is cheap.
 function Tracker:OnTestModeChanged(event)
     if PH.debug then
-        print(("[PH] Tracker:%s"):format(event))
+        print((PH.prefix .. " Tracker:%s"):format(event))
     end
     Tracker:UpdateActivation()
     if PH.state.isActive then
@@ -482,7 +482,7 @@ function Tracker:OnSpellcastSent(event, unit, target, castGUID, spellID)
     if not target or target == "" then return end
     for slot = 1, 2 do
         if PH.slots[slot].fullName == target then
-            print(("[PH] Macro %d utilisee sur %s"):format(slot, target))
+            print((PH.prefix .. " Macro %d utilisee sur %s"):format(slot, target))
             return
         end
     end
