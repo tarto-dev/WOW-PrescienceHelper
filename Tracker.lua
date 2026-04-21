@@ -30,6 +30,23 @@ local rangeElapsed   = 0.0
 -- the localised name. The numeric path is locale-independent.
 local SPELL_ID_PRESCIENCE = 409311
 
+-- Temporary debug helper: mirrors prints to PH.db.debugLog (ring buffer, 800
+-- lines) so they survive /reload and land in SavedVariables for offline
+-- inspection. Active only while PH.debug is true.
+local function dlog(msg)
+    print(msg)
+    if PH.db and PH.db.debug then
+        PH.db.debugLog = PH.db.debugLog or {}
+        table.insert(PH.db.debugLog, date("%H:%M:%S ") .. msg)
+        local n = #PH.db.debugLog
+        if n > 800 then
+            for i = 1, n - 800 do
+                table.remove(PH.db.debugLog, 1)
+            end
+        end
+    end
+end
+
 local function normalizeTarget(s)
     if type(s) ~= "string" or s == "" then return "" end
     if s:find("-", 1, true) then return s end
@@ -101,7 +118,7 @@ local function scanAurasForSlot(slot)
     end
     local found, exp, dur = false, 0, 0
     if PH.debug then
-        print((PH.prefix .. " scanAurasForSlot[%d] unitID=%s resolved=%s"):format(
+        dlog((PH.prefix .. " scanAurasForSlot[%d] unitID=%s resolved=%s"):format(
             slot, tostring(s.unitID), tostring(s.resolved)))
     end
     local seen = 0
@@ -113,7 +130,7 @@ local function scanAurasForSlot(slot)
                 return aura.spellId, tostring(aura.sourceUnit), tostring(aura.name)
             end)
             if okp then
-                print((PH.prefix .. "   aura spellId=%s sourceUnit=%s name=%s"):format(
+                dlog((PH.prefix .. "   aura spellId=%s sourceUnit=%s name=%s"):format(
                     tostring(sid), tostring(su), tostring(nm)))
             end
         end
@@ -129,7 +146,7 @@ local function scanAurasForSlot(slot)
         return true
     end, true)
     if PH.debug then
-        print((PH.prefix .. " scanAurasForSlot[%d] seen=%d found=%s exp=%s dur=%s"):format(
+        dlog((PH.prefix .. " scanAurasForSlot[%d] seen=%d found=%s exp=%s dur=%s"):format(
             slot, seen, tostring(found), tostring(exp), tostring(dur)))
     end
     return found, exp, dur
@@ -333,7 +350,7 @@ end
 
 function Tracker:OnUnitAura(event, unitTarget, updateInfo)
     if PH.debug then
-        print((PH.prefix .. " OnUnitAura unit=%s isActive=%s"):format(
+        dlog((PH.prefix .. " OnUnitAura unit=%s isActive=%s"):format(
             tostring(unitTarget), tostring(PH.state.isActive)))
     end
     if not PH.state.isActive then return end
