@@ -319,12 +319,21 @@ local DB_DEFAULT_ANCHORS = {
 -- _macroPending[slot]; PLAYER_REGEN_ENABLED flushes deferred writes once
 -- combat ends. Mirrors Phase 3 _anchorPending pattern.
 --
--- Icon: nil on EditMacro keeps the existing icon (preserves a user re-icon).
--- CreateMacro uses INV_Misc_QuestionMark as a neutral default -- the addon's
--- icon button shows its own texture, the macro's stored icon is never seen.
-local MACRO_NAME_FMT = "PRESCIENCE %d"
-local MACRO_ICON     = "INV_Misc_QuestionMark"
-local _macroPending  = _macroPending or {}
+-- Icon: both EditMacro and CreateMacro pass the Prescience spell texture so
+-- the macro is recognizable wherever it appears (action bar drag, alt-binding,
+-- macro UI list). Looked up lazily via C_Spell.GetSpellTexture so the spell
+-- data is fully available at first call (post-PH_DB_READY); falls back to
+-- INV_Misc_QuestionMark on the rare case the lookup returns nil. SSOT
+-- extends from body to icon: addon owns both, manual re-icons get reverted
+-- on the next EditBox commit / /reload (consistent with the body overwrite).
+local SPELL_ID_PRESCIENCE = 409311
+local MACRO_NAME_FMT      = "PRESCIENCE %d"
+local MACRO_ICON_FALLBACK = "INV_Misc_QuestionMark"
+local _macroPending       = _macroPending or {}
+
+local function macroIcon()
+    return C_Spell.GetSpellTexture(SPELL_ID_PRESCIENCE) or MACRO_ICON_FALLBACK
+end
 
 local function buildMacroBody(pseudo)
     if not pseudo or pseudo == "" then
@@ -346,13 +355,13 @@ local function applyMacroForSlot(slot, pseudo)
     local body = buildMacroBody(pseudo)
     local idx = GetMacroIndexByName(macroName)
     if idx and idx > 0 then
-        EditMacro(idx, macroName, nil, body)
+        EditMacro(idx, macroName, macroIcon(), body)
     else
         -- perCharacter=true => character-specific slot (1-18); falls back to
         -- nothing if the user is at their per-character macro cap. CreateMacro
         -- can also error on overflow, so wrap in pcall to keep the EditBox
         -- commit path resilient.
-        local ok, err = pcall(CreateMacro, macroName, MACRO_ICON, body, true)
+        local ok, err = pcall(CreateMacro, macroName, macroIcon(), body, true)
         if not ok and PH.debug then
             print((PH.prefix .. " Config:CreateMacro %s failed: %s"):format(macroName, tostring(err)))
         end
