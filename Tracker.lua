@@ -93,6 +93,19 @@ local function gateDungeon()
         and IsInGroup() and not IsInRaid() or false
 end
 
+-- Stable Augmentation Evoker spec ID (Retail). GetSpecialization() can return
+-- nil very early at login before spec data is hydrated; treat that as false
+-- and let PLAYER_SPECIALIZATION_CHANGED flip us active once the real spec
+-- lands.
+local AUGMENTATION_SPEC_ID = 1473
+
+local function isAugmentation()
+    local specIndex = GetSpecialization()
+    if not specIndex then return false end
+    local specID = GetSpecializationInfo(specIndex)
+    return specID == AUGMENTATION_SPEC_ID
+end
+
 -- HELPFUL|PLAYER filter restricts iteration to auras cast by the local player,
 -- which also excludes other Augmentation Evokers' buffs. It bypasses forbidden
 -- / "secret" auras applied by raid bosses that would throw "attempt to compare
@@ -241,10 +254,12 @@ end
 
 -- Single choke point for active <-> inactive transitions. Fires PH_ACTIVATED
 -- / PH_DEACTIVATED BEFORE mutating cache state so subscribers observe the
--- edge first. Combined gate: test OR raid OR dungeon (any toggle is enough).
+-- edge first. Combined gate: (test OR raid OR dungeon) AND Augmentation spec.
+-- Non-Augmentation players never see the addon, so the spec gate wraps
+-- everything including test mode.
 function Tracker:UpdateActivation()
     local testOn = (PH.db and PH.db.test == true)
-    local now = testOn or gateRaid() or gateDungeon()
+    local now = (testOn or gateRaid() or gateDungeon()) and isAugmentation()
     if now == PH.state.isActive then return end
 
     if now then
@@ -370,9 +385,10 @@ function Tracker:OnSpellcastSent(event, unit, target, castGUID, spellID)
     end
 end
 
-PH.Core:RegisterEvent("UNIT_AURA",              PH.Tracker, "OnUnitAura")
-PH.Core:RegisterEvent("PH_DB_READY",            PH.Tracker, "OnDbReady")
-PH.Core:RegisterEvent("PH_TEST_MODE_CHANGED",   PH.Tracker, "OnTestModeChanged")
-PH.Core:RegisterEvent("UNIT_SPELLCAST_SENT",    PH.Tracker, "OnSpellcastSent")
-PH.Core:RegisterEvent("PLAYER_ROLES_ASSIGNED",  PH.Tracker, "OnGroupUpdate")
-PH.Core:RegisterEvent("PH_ACTIVE_GATE_CHANGED", PH.Tracker, "OnActiveGateChanged")
+PH.Core:RegisterEvent("UNIT_AURA",                    PH.Tracker, "OnUnitAura")
+PH.Core:RegisterEvent("PH_DB_READY",                  PH.Tracker, "OnDbReady")
+PH.Core:RegisterEvent("PH_TEST_MODE_CHANGED",         PH.Tracker, "OnTestModeChanged")
+PH.Core:RegisterEvent("UNIT_SPELLCAST_SENT",          PH.Tracker, "OnSpellcastSent")
+PH.Core:RegisterEvent("PLAYER_ROLES_ASSIGNED",        PH.Tracker, "OnGroupUpdate")
+PH.Core:RegisterEvent("PH_ACTIVE_GATE_CHANGED",       PH.Tracker, "OnActiveGateChanged")
+PH.Core:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", PH.Tracker, "OnActiveGateChanged")
