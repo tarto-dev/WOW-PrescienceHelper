@@ -31,10 +31,15 @@ local rangeElapsed   = 0.0
 local SPELL_ID_PRESCIENCE_CAST = 409311
 local SPELL_ID_PRESCIENCE_BUFF = 410089
 
+-- Normalise stored targets to lowercase "name-realm". "sbae" is expanded with
+-- the local realm ("sbae-hyjal"), "sbae-Hyjal" is just lowercased. The match
+-- side lowercases the candidate on every comparison, so "sbae", "Sbae",
+-- "SBAE-hyjal", "Sbae-Hyjal" all resolve to the same player. buildFullName
+-- preserves the server-cased version for display.
 local function normalizeTarget(s)
     if type(s) ~= "string" or s == "" then return "" end
-    if s:find("-", 1, true) then return s end
-    return s .. "-" .. GetNormalizedRealmName()
+    if s:find("-", 1, true) then return strlower(s) end
+    return strlower(s) .. "-" .. strlower(GetNormalizedRealmName())
 end
 
 local function buildFullName(unit)
@@ -48,7 +53,7 @@ end
 
 local function matchSlot(target, candidate)
     if target == "" or not candidate then return false end
-    return target == candidate
+    return target == strlower(candidate)
 end
 
 -- Reset-on-each-event debounce: every roster event pushes the deadline
