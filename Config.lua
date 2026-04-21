@@ -471,35 +471,33 @@ end
 -- Plan 04-03 Task 1 payload: the three public refresh methods that paint the
 -- right-column status FontStrings scaffolded by Plan 04-01's buildLayout. The
 -- refresh pipeline is intentionally stateless -- each call reads live PH.slots
--- + PH.db.playerN + GetMacroIndexByName and writes SetText + SetTextColor in
--- one pass. D-16 explicitly waives throttling: the per-slot work is 1 table
--- read + 1-2 string builds + 1 SetText + 1 SetTextColor, well below 1 ms even
--- on an UPDATE_MACROS storm. Task 2 below installs the event handlers that
--- drive these refresh methods from PH_CACHE_REBUILT / UPDATE_MACROS /
--- PH_TEST_MODE_CHANGED.
-
--- D-09 palette. Amber (not red) signals "heads up, fix via config" -- distinct
--- from Phase 3's red which signals "broken icon state, look at icon". Float
--- triplets to match the FontString:SetTextColor(r, g, b) signature.
-local COLOR_OK   = { 0.2, 0.9, 0.2 }
-local COLOR_WARN = { 1.0, 0.8, 0.0 }
+-- + PH.db.playerN + GetMacroIndexByName and writes SetText in one pass. D-16
+-- explicitly waives throttling: the per-slot work is 1 table read + 1-2 string
+-- builds + 1 SetText, well below 1 ms even on an UPDATE_MACROS storm. Task 2
+-- below installs the event handlers that drive these refresh methods from
+-- PH_CACHE_REBUILT / UPDATE_MACROS / PH_TEST_MODE_CHANGED.
+--
+-- D-09 revision (Phase 5 QA): the original palette (green 0.2/0.9/0.2 /
+-- amber 1.0/0.8/0.0) relied on rendering U+2713 / U+26A0 glyphs that WoW's
+-- default font lacks -- the decimal-escape fix still emitted the glyph codepoint
+-- and the font painted it as .notdef (a colored square). Replaced with inline
+-- texture tags pointing at the stock ReadyCheck atlas: ReadyCheck-Ready (green
+-- check) and ReadyCheck-NotReady (red X) carry their own vertex colors, so
+-- SetTextColor is dropped to avoid tint-multiplying the texture into mud.
 
 -- Config:RefreshResolutionStatus(slot) -- paint the resolution status FontString
 -- for one slot. Three mutually exclusive, exhaustive branches per D-12:
---   1) PH.db.playerN == ""           -> amber "Pseudo vide"
---   2) PH.slots[slot].resolved       -> green  "Trouve comme <unit> (<full>)"
---   3) otherwise (non-empty, unresolved) -> amber "Pas dans le groupe actuel"
--- The \226\156\147 / \226\154\160 sequences are the UTF-8 byte encodings of
--- U+2713 (checkmark) and U+26A0 (warning), written as Lua 5.1 decimal
--- escapes (\NNN) -- WoW's Lua 5.1 interpreter does NOT support the \xHH
--- hex-escape syntax that landed in Lua 5.2, so hex escapes would be emitted
--- literally. Decimal escapes keep the file ASCII-clean at the byte level
--- while rendering as the intended glyph in-game. tostring() on unitID and
--- fullName is defensive nil-safety -- PH.slots values should be string|nil
--- per Tracker.lua lines 18-29, but the cost of the guard is zero and it
--- prevents a nil-concat crash if another addon corrupts PH.slots (T-04-03-02).
--- Guards on PH.db / PH.slots return early before first PH_DB_READY dispatch;
--- the FontString guard catches the pre-buildLayout window.
+--   1) PH.db.playerN == ""           -> red X    "Pseudo vide"
+--   2) PH.slots[slot].resolved       -> green V  "Trouve comme <unit> (<full>)"
+--   3) otherwise (non-empty, unresolved) -> red X "Pas dans le groupe actuel"
+-- Inline textures |TInterface\\RaidFrame\\ReadyCheck-Ready:14|t and
+-- ...ReadyCheck-NotReady:14|t render the WoW stock 14x14 ready-check glyphs
+-- inside the FontString. tostring() on unitID and fullName is defensive
+-- nil-safety -- PH.slots values should be string|nil per Tracker.lua lines
+-- 18-29, but the cost of the guard is zero and it prevents a nil-concat
+-- crash if another addon corrupts PH.slots (T-04-03-02). Guards on PH.db /
+-- PH.slots return early before first PH_DB_READY dispatch; the FontString
+-- guard catches the pre-buildLayout window.
 function Config:RefreshResolutionStatus(slot)
     if slot ~= 1 and slot ~= 2 then return end
     if not PH.db then return end
@@ -510,21 +508,17 @@ function Config:RefreshResolutionStatus(slot)
     local target = PH.db[playerKey] or ""
     local s = PH.slots and PH.slots[slot]
 
-    local text, color
+    local text
     if target == "" then
-        text  = "\226\154\160 Pseudo vide"  -- D-12 branch 1
-        color = COLOR_WARN
+        text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t Pseudo vide"  -- D-12 branch 1
     elseif s and s.resolved then
-        text = ("\226\156\147 Trouve comme %s (%s)"):format(
+        text = ("|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t Trouve comme %s (%s)"):format(
             tostring(s.unitID), tostring(s.fullName))  -- D-12 branch 2
-        color = COLOR_OK
     else
-        text  = "\226\154\160 Pas dans le groupe actuel"  -- D-12 branch 3
-        color = COLOR_WARN
+        text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t Pas dans le groupe actuel"  -- D-12 branch 3
     end
 
     fs:SetText(text)
-    fs:SetTextColor(color[1], color[2], color[3])
 end
 
 -- Config:RefreshMacroStatus(slot) -- paint the macro status FontString for one
@@ -543,17 +537,14 @@ function Config:RefreshMacroStatus(slot)
     local macroName = "PRESCIENCE " .. slot
     local index = GetMacroIndexByName(macroName)
 
-    local text, color
+    local text
     if not index or index == 0 then
-        text  = ("\226\154\160 Macro \"%s\" introuvable"):format(macroName)  -- D-13
-        color = COLOR_WARN
+        text = ("|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t Macro \"%s\" introuvable"):format(macroName)  -- D-13
     else
-        text  = ("\226\156\147 Macro \"%s\" trouvee"):format(macroName)  -- D-13
-        color = COLOR_OK
+        text = ("|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t Macro \"%s\" trouvee"):format(macroName)  -- D-13
     end
 
     fs:SetText(text)
-    fs:SetTextColor(color[1], color[2], color[3])
 end
 
 -- Config:RefreshAll -- run both refresh methods for both slots. Called from:
