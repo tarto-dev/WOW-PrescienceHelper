@@ -94,6 +94,13 @@ local DB_DEFAULTS = {
     test = false,
     soundEnabled = true,
     debug = false,
+    -- Phase 5 dungeon support: independent activation gates for raid vs
+    -- 5-man group. Default raid=true preserves Phase 1-4 behavior; default
+    -- dungeon=false keeps the addon opt-in for the M+/dungeon scope reversal.
+    -- Tracker.lua reads both via the gate `(test) or (activeRaid and IsInRaid())
+    -- or (activeDungeon and IsInGroup() and not IsInRaid())`.
+    activeRaid = true,
+    activeDungeon = false,
     anchors = {
         [1] = { point = "CENTER", relPoint = "CENTER", x = -60, y = 0 },
         [2] = { point = "CENTER", relPoint = "CENTER", x =  60, y = 0 },
