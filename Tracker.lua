@@ -92,8 +92,8 @@ end
 -- throw "attempt to compare field 'spellId' (a secret number value tainted by
 -- 'PrescienceHelper')" on direct field access. The pcall guard is defense in
 -- depth in case an edge aura still slips through.
--- The sourceUnit == "player" check guards against false positives in raids
--- with multiple Augmentation Evokers.
+-- TRACK-02 (no cross-Aug false positives) is enforced by the HELPFUL|PLAYER
+-- filter alone: it iterates only auras whose caster is the local player.
 local function scanAurasForSlot(slot)
     local s = PH.slots[slot]
     if not s.resolved or not s.unitID then
@@ -103,7 +103,7 @@ local function scanAurasForSlot(slot)
     AuraUtil.ForEachAura(s.unitID, "HELPFUL|PLAYER", nil, function(aura)
         if not aura then return end
         local ok, isMatch = pcall(function()
-            return aura.spellId == SPELL_ID_PRESCIENCE and aura.sourceUnit == "player"
+            return aura.spellId == SPELL_ID_PRESCIENCE
         end)
         if not ok or not isMatch then return end
         local ok2, e, d = pcall(function() return aura.expirationTime, aura.duration end)
