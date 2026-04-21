@@ -3,7 +3,7 @@
 ## IconTexture: Interface\Icons\Ability_Evoker_Prescience
 ## Notes: Track Prescience on two key raid allies.
 ## Notes-frFR: Traque Prescience sur deux cibles prioritaires en raid.
-## Version: 0.1.0
+## Version: 1.0.0
 ## Author: Claralicious_
 ## X-Category: Raid
 ## SavedVariables: PrescienceHelperDB

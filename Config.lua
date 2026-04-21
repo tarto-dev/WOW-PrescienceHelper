@@ -154,9 +154,8 @@ local function buildLayout(panel)
     lbActiveDungeon:SetPoint("LEFT", cbActiveDungeon, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.activeDungeon = cbActiveDungeon
 
-    -- Left column, row 5: lock CheckButton. ASCII-only per CLAUDE.md + CONTEXT
-    -- D-07 "Claude's Discretion"; accents restored in a later phase only if
-    -- needed.
+    -- Left column, row 5: lock CheckButton. ASCII-only per project convention;
+    -- accents restored in a later phase only if needed.
     local cbLock, lbLock = makeCheckButton(panel, "Verrouiller les icones")
     cbLock:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 4 * ROW_HEIGHT)
     lbLock:SetPoint("LEFT", cbLock, "RIGHT", PADDING, 0)

@@ -26,7 +26,7 @@ local BORDER_RED   = { 1.0, 0.2, 0.2, 1.0 }
 local BORDER_GREEN = { 0.2, 0.9, 0.2, 1.0 }
 
 -- Icon geometry. UI-01 locks the 48x48 button size. BORDER_THICKNESS is the
--- Claude's Discretion slot from D-05: try 2 px first, drop to 1 if 03-05 UAT
+-- discretionary slot from D-05: try 2 px first, drop to 1 if 03-05 UAT
 -- reports visual noise. Both values are referenced from exactly one site below
 -- so a future tweak is a single-line change.
 local ICON_SIZE        = 48
@@ -101,7 +101,7 @@ local function createButton(slot)
     -- nine-slice art, just 4 solid-color rectangles hugging each edge. State
     -- transitions to BORDER_RED / BORDER_GREEN arrive in 03-02 via individual
     -- SetColorTexture calls on the same 4 textures. Thickness is fixed at
-    -- BORDER_THICKNESS (= 2 px) per D-05's Claude's-Discretion default.
+    -- BORDER_THICKNESS (= 2 px) per D-05's discretionary default.
     local function makeEdge()
         local tex = button:CreateTexture(nil, "OVERLAY")
         tex:SetColorTexture(BORDER_GREY[1], BORDER_GREY[2], BORDER_GREY[3], BORDER_GREY[4])

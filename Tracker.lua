@@ -140,7 +140,7 @@ end
 -- == "player". Returns false/0/0 if the slot is unresolved or no match is found.
 -- `usePackedAura=true` (D-25) gives us a packed AuraData table; iteration is
 -- aborted on first match to save a handful of callback invocations per scan
--- (claude's discretion -- behavior identical either way).
+-- (implementation discretion -- behavior identical either way).
 --
 -- Filter "HELPFUL|PLAYER" restricts iteration to auras cast by the player,
 -- bypassing forbidden/secret auras applied by raid bosses or other systems --
