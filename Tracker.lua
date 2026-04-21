@@ -33,23 +33,6 @@ local rangeElapsed   = 0.0
 local SPELL_ID_PRESCIENCE_CAST = 409311
 local SPELL_ID_PRESCIENCE_BUFF = 410089
 
--- Temporary debug helper: mirrors prints to PH.db.debugLog (ring buffer, 800
--- lines) so they survive /reload and land in SavedVariables for offline
--- inspection. Active only while PH.debug is true.
-local function dlog(msg)
-    print(msg)
-    if PH.db and PH.db.debug then
-        PH.db.debugLog = PH.db.debugLog or {}
-        table.insert(PH.db.debugLog, date("%H:%M:%S ") .. msg)
-        local n = #PH.db.debugLog
-        if n > 800 then
-            for i = 1, n - 800 do
-                table.remove(PH.db.debugLog, 1)
-            end
-        end
-    end
-end
-
 local function normalizeTarget(s)
     if type(s) ~= "string" or s == "" then return "" end
     if s:find("-", 1, true) then return s end
@@ -120,23 +103,8 @@ local function scanAurasForSlot(slot)
         return false, 0, 0
     end
     local found, exp, dur = false, 0, 0
-    if PH.debug then
-        dlog((PH.prefix .. " scanAurasForSlot[%d] unitID=%s resolved=%s"):format(
-            slot, tostring(s.unitID), tostring(s.resolved)))
-    end
-    local seen = 0
     AuraUtil.ForEachAura(s.unitID, "HELPFUL|PLAYER", nil, function(aura)
         if not aura then return end
-        seen = seen + 1
-        if PH.debug then
-            local okp, sid, su, nm = pcall(function()
-                return aura.spellId, tostring(aura.sourceUnit), tostring(aura.name)
-            end)
-            if okp then
-                dlog((PH.prefix .. "   aura spellId=%s sourceUnit=%s name=%s"):format(
-                    tostring(sid), tostring(su), tostring(nm)))
-            end
-        end
         local ok, isMatch = pcall(function()
             return aura.spellId == SPELL_ID_PRESCIENCE_BUFF
         end)
@@ -148,10 +116,6 @@ local function scanAurasForSlot(slot)
         dur   = d or 0
         return true
     end, true)
-    if PH.debug then
-        dlog((PH.prefix .. " scanAurasForSlot[%d] seen=%d found=%s exp=%s dur=%s"):format(
-            slot, seen, tostring(found), tostring(exp), tostring(dur)))
-    end
     return found, exp, dur
 end
 
@@ -352,10 +316,6 @@ function Tracker:OnActiveGateChanged(event)
 end
 
 function Tracker:OnUnitAura(event, unitTarget, updateInfo)
-    if PH.debug then
-        dlog((PH.prefix .. " OnUnitAura unit=%s isActive=%s"):format(
-            tostring(unitTarget), tostring(PH.state.isActive)))
-    end
     if not PH.state.isActive then return end
     Tracker:ScanAuras()
 end
