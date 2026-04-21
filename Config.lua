@@ -196,6 +196,21 @@ end
 
 buildLayout(PH.Config._panel)
 
+-- 4.1 Author credit footer (Phase 5 polish) ---------------------------------
+-- Subtle bottom-left author line. The "FR" suffix is colored as the French
+-- flag tricolor via WoW's |cAARRGGBB...|r escape -- bleu #0055A4, blanc
+-- #FFFFFF, rouge #EF4135. ASCII characters only (CLAUDE.md byte convention);
+-- no Unicode flag emoji because WoW's default font has no Supplementary
+-- Multilingual Plane glyphs and would render .notdef squares.
+-- GameFontDisableSmall keeps the credit visually subordinate to the controls.
+local function buildFooter(panel)
+    local fs = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    fs:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", LEFT_X, PADDING)
+    fs:SetText("By Claralicious_  |cFF0055A4F|r|cFFFFFFFFR|r|cFFEF4135!|r")
+end
+
+buildFooter(PH.Config._panel)
+
 -- 4.5 Widget wiring (D-17, D-18, D-19, D-20, D-21, D-22, D-23) ---------------
 -- Plan 04-02 payload: attach scripts to the inert widgets scaffolded by Plan
 -- 04-01's buildLayout. Two EditBoxes (slots 1..2) get the edit-focus-lost +
