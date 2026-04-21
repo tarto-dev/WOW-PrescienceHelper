@@ -52,54 +52,54 @@ PH.Config._panel = PH.Config._panel or CreateFrame("Frame", "PrescienceHelperOpt
 local function buildLayout(panel)
     -- Player EditBoxes (rows 1-2). +60 on the EditBox x-offset aligns inputs
     -- across both rows despite label-width variation (ASCII labels only).
-    local eb1, lb1 = makeEditBox(panel, "Joueur 1")
+    local eb1, lb1 = makeEditBox(panel, PH.L["Player 1"])
     lb1:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y)
     eb1:SetPoint("LEFT", lb1, "RIGHT", PADDING + 60, 0)
     PH.Config._widgets.player[1] = eb1
 
-    local eb2, lb2 = makeEditBox(panel, "Joueur 2")
+    local eb2, lb2 = makeEditBox(panel, PH.L["Player 2"])
     lb2:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - ROW_HEIGHT)
     eb2:SetPoint("LEFT", lb2, "RIGHT", PADDING + 60, 0)
     PH.Config._widgets.player[2] = eb2
 
     -- Activation gates (rows 3-4). activeRaid default ON, activeDungeon OFF.
-    local cbActiveRaid, lbActiveRaid = makeCheckButton(panel, "Activer en raid")
+    local cbActiveRaid, lbActiveRaid = makeCheckButton(panel, PH.L["Enable in raid"])
     cbActiveRaid:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 2 * ROW_HEIGHT)
     lbActiveRaid:SetPoint("LEFT", cbActiveRaid, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.activeRaid = cbActiveRaid
 
-    local cbActiveDungeon, lbActiveDungeon = makeCheckButton(panel, "Activer en donjon")
+    local cbActiveDungeon, lbActiveDungeon = makeCheckButton(panel, PH.L["Enable in dungeon"])
     cbActiveDungeon:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 3 * ROW_HEIGHT)
     lbActiveDungeon:SetPoint("LEFT", cbActiveDungeon, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.activeDungeon = cbActiveDungeon
 
     -- Behavior toggles (rows 5-7).
-    local cbLock, lbLock = makeCheckButton(panel, "Verrouiller les icones")
+    local cbLock, lbLock = makeCheckButton(panel, PH.L["Lock icons"])
     cbLock:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 4 * ROW_HEIGHT)
     lbLock:SetPoint("LEFT", cbLock, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.lock = cbLock
 
-    local cbTest, lbTest = makeCheckButton(panel, "Mode test")
+    local cbTest, lbTest = makeCheckButton(panel, PH.L["Test mode"])
     cbTest:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 5 * ROW_HEIGHT)
     lbTest:SetPoint("LEFT", cbTest, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.test = cbTest
 
-    local cbSound, lbSound = makeCheckButton(panel, "Son active")
+    local cbSound, lbSound = makeCheckButton(panel, PH.L["Sound enabled"])
     cbSound:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 6 * ROW_HEIGHT)
     lbSound:SetPoint("LEFT", cbSound, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.sound = cbSound
 
-    local cbDebug, lbDebug = makeCheckButton(panel, "Mode debug")
+    local cbDebug, lbDebug = makeCheckButton(panel, PH.L["Debug mode"])
     cbDebug:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 7 * ROW_HEIGHT)
     lbDebug:SetPoint("LEFT", cbDebug, "RIGHT", PADDING, 0)
     PH.Config._widgets.check.debug = cbDebug
 
     -- Action buttons (rows 9-10), separated from the toggle stack by PADDING.
-    local btnReset = makeButton(panel, "Reinitialiser les positions")
+    local btnReset = makeButton(panel, PH.L["Reset positions"])
     btnReset:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 8 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.reset = btnReset
 
-    local btnRecreate = makeButton(panel, "Enregistrer et recreer les macros", 240)
+    local btnRecreate = makeButton(panel, PH.L["Save and recreate macros"], 240)
     btnRecreate:SetPoint("TOPLEFT", panel, "TOPLEFT", LEFT_X, TOP_Y - 9 * ROW_HEIGHT - PADDING)
     PH.Config._widgets.recreate = btnRecreate
 
@@ -306,7 +306,7 @@ local function wireWidgets(panel)
     -- to avoid aliasing the template into the live DB.
     PH.Config._widgets.reset:SetScript("OnClick", function()
         if InCombatLockdown() then
-            print(PH.prefix .. " Impossible en combat. Reessaie apres.")
+            print(PH.prefix .. " " .. PH.L["Not possible in combat. Try again after."])
             return
         end
         if not (PH.db and PH.db.anchors) then return end
@@ -323,13 +323,13 @@ local function wireWidgets(panel)
     -- PH.db state. Subsequent UPDATE_MACROS event re-paints the status lines.
     PH.Config._widgets.recreate:SetScript("OnClick", function()
         if InCombatLockdown() then
-            print(PH.prefix .. " Impossible en combat. Reessaie apres.")
+            print(PH.prefix .. " " .. PH.L["Not possible in combat. Try again after."])
             return
         end
         if not PH.db then return end
         applyMacroForSlot(1, PH.db.player1)
         applyMacroForSlot(2, PH.db.player2)
-        print(PH.prefix .. " Macros PRESCIENCE 1 / 2 enregistrees depuis la config.")
+        print(PH.prefix .. " " .. PH.L["Macros PRESCIENCE 1 / 2 saved from config."])
     end)
 end
 
@@ -426,12 +426,12 @@ function Config:RefreshResolutionStatus(slot)
 
     local text
     if target == "" then
-        text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t Pseudo vide"
+        text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t " .. PH.L["Empty name"]
     elseif s and s.resolved then
-        text = ("|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t Trouve comme %s (%s)"):format(
+        text = ("|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t " .. PH.L["Found as %s (%s)"]):format(
             tostring(s.unitID), tostring(s.fullName))
     else
-        text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t Pas dans le groupe actuel"
+        text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t " .. PH.L["Not in current group"]
     end
 
     fs:SetText(text)
@@ -447,9 +447,9 @@ function Config:RefreshMacroStatus(slot)
 
     local text
     if not index or index == 0 then
-        text = ("|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t Macro \"%s\" introuvable"):format(macroName)
+        text = ("|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t " .. PH.L["Macro \"%s\" not found"]):format(macroName)
     else
-        text = ("|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t Macro \"%s\" trouvee"):format(macroName)
+        text = ("|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t " .. PH.L["Macro \"%s\" found"]):format(macroName)
     end
 
     fs:SetText(text)

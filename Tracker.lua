@@ -359,7 +359,7 @@ function Tracker:OnSpellcastSent(event, unit, target, castGUID, spellID)
     if not target or target == "" then return end
     for slot = 1, 2 do
         if PH.slots[slot].fullName == target then
-            print((PH.prefix .. " Macro %d utilisee sur %s"):format(slot, target))
+            print((PH.prefix .. " " .. PH.L["Macro %d used on %s"]):format(slot, target))
             return
         end
     end
